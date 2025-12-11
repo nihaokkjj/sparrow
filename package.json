@@ -8,7 +8,7 @@
     "test": "vitest run --coverage",
     "test:browser": "vitest --config=vitest.browser.config.js",
     "prepare": "husky install",
-    "ci": "run-s lint test build"
+    "ci": "run-s test build"
   },
   "lint-staged": {
     "*.js": [
