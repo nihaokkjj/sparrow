@@ -25,8 +25,12 @@ jobs:
           restore-keys: |
             cache-node-modules-
 
-      - name: Run ci
-        run: |
-          pnpm install
-          pnpm run ci
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install
+        run: pnpm install
+
+      - name: Run CI
+        run: pnpm run ci
 
