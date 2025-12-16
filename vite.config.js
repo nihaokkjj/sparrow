@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-
+import path from 'node:path'
 export default {
   build: {
     lib: {
@@ -8,6 +8,13 @@ export default {
       fileName: 'sparrow',
       formats: ['es', 'umd']
     }
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@renderer': path.resolve(__dirname, './src/renderer')
+    },
+    extensions: ['.js', '.ts', '.vue', '.json']
   },
   test: {
     environment: 'jsdom',

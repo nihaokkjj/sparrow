@@ -23,3 +23,15 @@ export function applyAttributes(element, attributes) {
     element.setAttribute(kebabCaseKey, value)
   }
 }
+export function applyTransform(element, transform) {
+  const oldTransform = element.getAttribute('transform') || ''
+  // 将新的变换指定到后面的变换后，这里需要字符串拼接
+  const prefix = oldTransform ? `${oldTransform} ` : ''
+  element.setAttribute('transform', `${prefix}${transform}`)
+}
+export function save(context) {
+  const { group } = context
+  const newGroup = createSVGElement('g')
+  mount(group, newGroup)
+  context.group = newGroup
+}

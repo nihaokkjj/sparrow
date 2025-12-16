@@ -1,3 +1,1 @@
-export function hello() {
-  return 'hello'
-}
+export { createRenderer } from './renderer'
