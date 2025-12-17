@@ -1,5 +1,5 @@
-import { createOrdinal } from './ordinal'
-import { band } from './utils'
+import { createOrdinal } from './ordinal.js'
+import { band } from './utils.js'
 
 export function createBand(options) {
   const { bandRange, bandWidth, step } = band(options)

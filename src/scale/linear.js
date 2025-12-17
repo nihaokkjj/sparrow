@@ -1,4 +1,4 @@
-import { normalize, tickStep, nice, floor, ceil, ticks } from './utils'
+import { normalize, tickStep, nice, floor, ceil, ticks } from './utils.js'
 export function createLinear({
   domain: [d0, d1],
   range: [r0, r1],

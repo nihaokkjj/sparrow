@@ -1,4 +1,4 @@
-import { createLinear } from './linear'
+import { createLinear } from './linear.js'
 
 export function createTime({ domain, ...rest }) {
   const transform = (x) => x.getTime()
