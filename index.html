@@ -58,8 +58,104 @@
       // 测试第一个 SVG 画布
       const svg1 = document.querySelectorAll('svg')[0]
       const renderer1 = createRenderer(300, 200)
-      console.log(renderer1)
+      
+      // 绘制直线
+      renderer1.line({
+        x1: 50,
+        y1: 50,
+        x2: 250,
+        y2: 150,
+        stroke: 'blue',
+        strokeWidth: 2
+      })
+      
+      // 绘制矩形
+      renderer1.rect({
+        x: 100,
+        y: 80,
+        width: 100,
+        height: 60,
+        fill: 'green',
+        opacity: 0.7
+      })
+      
+      // 绘制圆形
+      renderer1.circle({
+        cx: 150,
+        cy: 100,
+        r: 40,
+        fill: 'red',
+        stroke: 'black',
+        strokeWidth: 2
+      })
+      
+      // 添加文本
+      renderer1.text({
+        x: 150,
+        y: 180,
+        text: 'Hello Renderer!',
+        fill: 'purple',
+        fontSize: 16,
+        textAnchor: 'middle'
+      })
+      
+      // 绘制路径（三角形）
+      renderer1.path({
+        d: [
+          ['M', 200, 50],
+          ['L', 280, 150],
+          ['L', 120, 150],
+          ['Z']
+        ],
+        fill: 'orange',
+        opacity: 0.6
+      })
+      
       svg1.appendChild(renderer1.node())
+      
+      // 测试第二个 SVG 画布
+      const svg2 = document.getElementById('svg2')
+      const renderer2 = createRenderer(300, 200)
+      
+      // 使用ring函数绘制三个同心圆环
+      renderer2.ring({
+        cx: 150,
+        cy: 100,
+        r1: 30,
+        r2: 50,
+        fill: '#42b883'
+      })
+      
+      renderer2.ring({
+        cx: 150,
+        cy: 100,
+        r1: 60,
+        r2: 70,
+        fill: '#35495e'
+      })
+      
+      renderer2.ring({
+        cx: 150,
+        cy: 100,
+        r1: 80,
+        r2: 90,
+        fill: '#ff6b6b'
+      })
+      
+      // 在圆环中心添加标题
+      renderer2.text({
+        x: 150,
+        y: 100,
+        text: 'Ring Demo',
+        fill: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+        textAnchor: 'middle',
+        dominantBaseline: 'central'
+      })
+      renderer2.translate(20, 20)
+      renderer2.scale(2, 2)
+      svg2.appendChild(renderer2.node())
 
       
     </script>

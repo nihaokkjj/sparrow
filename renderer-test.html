@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Renderer Transform 测试</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        padding: 2rem;
+      }
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      h2 {
+        color: #42b883;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+      }
+      .demo {
+        margin: 2rem 0;
+        padding: 1rem;
+        border: 1px solid #eee;
+        border-radius: 8px;
+      }
+      .transform-demo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+        justify-content: center;
+      }
+      .transform-case {
+        text-align: center;
+      }
+      svg {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Renderer.js 变换功能测试</h1>
+
+      <div class="demo">
+        <h2>1. translate 平移变换</h2>
+        <div class="transform-demo" id="translate-container">
+          <div class="transform-case">
+            <p>原始位置</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>平移后 (50, 50)</p>
+            <svg width="200" height="200"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h2>2. rotate 旋转变换</h2>
+        <div class="transform-demo" id="rotate-container">
+          <div class="transform-case">
+            <p>原始角度</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>旋转45°</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>旋转90°</p>
+            <svg width="200" height="200"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h2>3. scale 缩放变换</h2>
+        <div class="transform-demo" id="scale-container">
+          <div class="transform-case">
+            <p>原始大小</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>放大2倍</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>缩小0.5倍</p>
+            <svg width="200" height="200"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h2>4. save/restore 状态保存与恢复</h2>
+        <div class="transform-demo" id="save-restore-container">
+          <div class="transform-case">
+            <p>变换前</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>变换中</p>
+            <svg width="200" height="200"></svg>
+          </div>
+          <div class="transform-case">
+            <p>恢复后</p>
+            <svg width="200" height="200"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      // 导入 renderer 模块
+      import { createRenderer } from '/src/renderer/renderer.js'
+      
+      // 辅助函数：绘制一个包含多种图形的组合图案用于变换测试
+      function drawTestPattern(renderer) {
+        // 绘制一个红色圆形
+        renderer.circle({
+          cx: 100,
+          cy: 100,
+          r: 40,
+          fill: 'red',
+          opacity: 0.7
+        })
+        
+        // 绘制一个蓝色矩形
+        renderer.rect({
+          x: 80,
+          y: 80,
+          width: 40,
+          height: 40,
+          fill: 'blue',
+          opacity: 0.5
+        })
+        
+        // 添加文本
+        renderer.text({
+          x: 100,
+          y: 160,
+          text: 'Test',
+          fill: 'green',
+          fontSize: 20,
+          textAnchor: 'middle'
+        })
+        
+        // 绘制十字线
+        renderer.line({
+          x1: 100,
+          y1: 20,
+          x2: 100,
+          y2: 180,
+          stroke: 'black',
+          strokeWidth: 1
+        })
+        
+        renderer.line({
+          x1: 20,
+          y1: 100,
+          x2: 180,
+          y2: 100,
+          stroke: 'black',
+          strokeWidth: 1
+        })
+      }
+      
+      // 测试 translate 平移变换
+      {
+        const container = document.getElementById('translate-container')
+        const svgs = container.querySelectorAll('svg')
+        
+        // 第一个画布：原始位置
+        const renderer1 = createRenderer(200, 200)
+        drawTestPattern(renderer1)
+        svgs[0].appendChild(renderer1.node())
+        
+        // 第二个画布：平移后
+        const renderer2 = createRenderer(200, 200)
+        renderer2.translate(50, 50) // 应用平移变换
+        drawTestPattern(renderer2)
+        svgs[1].appendChild(renderer2.node())
+      }
+      
+      // 测试 rotate 旋转变换
+      {
+        const container = document.getElementById('rotate-container')
+        const svgs = container.querySelectorAll('svg')
+        
+        // 第一个画布：原始角度
+        const renderer1 = createRenderer(200, 200)
+        drawTestPattern(renderer1)
+        svgs[0].appendChild(renderer1.node())
+        
+        // 第二个画布：旋转45°
+        const renderer2 = createRenderer(200, 200)
+        renderer2.rotate(45) // 应用旋转变换
+        drawTestPattern(renderer2)
+        svgs[1].appendChild(renderer2.node())
+        
+        // 第三个画布：旋转90°
+        const renderer3 = createRenderer(200, 200)
+        renderer3.rotate(90) // 应用旋转变换
+        drawTestPattern(renderer3)
+        svgs[2].appendChild(renderer3.node())
+      }
+      
+      // 测试 scale 缩放变换
+      {
+        const container = document.getElementById('scale-container')
+        const svgs = container.querySelectorAll('svg')
+        
+        // 第一个画布：原始大小
+        const renderer1 = createRenderer(200, 200)
+        drawTestPattern(renderer1)
+        svgs[0].appendChild(renderer1.node())
+        
+        // 第二个画布：放大2倍
+        const renderer2 = createRenderer(200, 200)
+        renderer2.scale(2, 2) // 应用缩放变换
+        drawTestPattern(renderer2)
+        svgs[1].appendChild(renderer2.node())
+        
+        // 第三个画布：缩小0.5倍
+        const renderer3 = createRenderer(200, 200)
+        renderer3.scale(0.5, 0.5) // 应用缩放变换
+        drawTestPattern(renderer3)
+        svgs[2].appendChild(renderer3.node())
+      }
+      
+      // 测试 save/restore 状态保存与恢复
+      {
+        const container = document.getElementById('save-restore-container')
+        const svgs = container.querySelectorAll('svg')
+        
+        // 第一个画布：变换前
+        const renderer1 = createRenderer(200, 200)
+        drawTestPattern(renderer1)
+        svgs[0].appendChild(renderer1.node())
+        
+        // 第二个画布：变换中
+        const renderer2 = createRenderer(200, 200)
+        renderer2.save() // 保存当前状态
+        renderer2.translate(50, 50) // 平移
+        renderer2.rotate(45) // 旋转
+        renderer2.scale(1.5, 1.5) // 缩放
+        drawTestPattern(renderer2)
+        renderer2.restore() // 恢复到保存的状态
+        svgs[1].appendChild(renderer2.node())
+        
+        // 第三个画布：恢复后
+        const renderer3 = createRenderer(200, 200)
+        drawTestPattern(renderer3) // 应该与第一个画布相同
+        svgs[2].appendChild(renderer3.node())
+      }
+    </script>
+  </body>
+</html>
