@@ -24,6 +24,30 @@
         border: 1px solid #eee;
         border-radius: 8px;
       }
+      .guid-cases {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .guid-case {
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        background-color: #fafafa;
+      }
+      .guid-case p {
+        margin: 0 0 0.5rem;
+        font-size: 0.85rem;
+        color: #555;
+      }
+      .guid-case svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 4px;
+        background-color: #fff;
+      }
     </style>
   </head>
   <body>
@@ -33,6 +57,7 @@
       <div class="demo">
         <h2>1. 基础图形绘制</h2>
         <svg
+          id="svg-basic"
           width="300"
           height="200"
           style="border: 1px solid #ddd; border-radius: 4px"
@@ -41,123 +66,243 @@
 
       <div class="demo">
         <h2>2. 复杂图形组合</h2>
-        <svg id="svg2"
+        <svg id="svg-advanced"
           width="300"
           height="200"
           style="border: 1px solid #ddd; border-radius: 4px"
         ></svg>
+      </div>
+
+      <div class="demo">
+        <h2>3. GUID 测试用例</h2>
+        <p>每个用例都通过 <code>crypto.randomUUID()</code> 生成唯一标识，驱动不同的绘制逻辑以校验 renderer 的稳定性。</p>
+        <div class="guid-cases" id="guid-cases"></div>
       </div>
     </div>
 
     <script type="module">
       // 导入 renderer 模块
       import { createRenderer } from '/src/renderer/renderer.js'
-      import { interpolateNumber } from '/src/scale/linear.js'
-      import {ticks} from '/src/scale/utils.js'
-      console.log(ticks(0.1, 9.9, 6))
-      // 测试第一个 SVG 画布
-      const svg1 = document.querySelectorAll('svg')[0]
-      const renderer1 = createRenderer(300, 200)
-      
-      // 绘制直线
-      renderer1.line({
-        x1: 50,
-        y1: 50,
-        x2: 250,
-        y2: 150,
-        stroke: 'blue',
+      import { createLinear } from '/src/scale/linear.js'
+      import { ticks } from '/src/scale/utils.js'
+
+      const mountRenderer = (placeholder, renderer) => {
+        const node = renderer.node()
+        const style = placeholder.getAttribute('style')
+        if (style) node.setAttribute('style', style)
+        if (placeholder.id) node.id = placeholder.id
+        placeholder.replaceWith(node)
+        return node
+      }
+
+      // === 1. 基础图形绘制 ===
+      const basicPlaceholder = document.getElementById('svg-basic')
+      const basicRenderer = createRenderer(300, 200)
+      const basicTicks = ticks(0, 300, 6)
+      basicTicks.forEach((tick) => {
+        basicRenderer.line({
+          x1: tick,
+          y1: 0,
+          x2: tick,
+          y2: 200,
+          stroke: '#f0f0f0'
+        })
+      })
+      basicRenderer.rect({
+        x: 30,
+        y: 30,
+        width: 80,
+        height: 50,
+        fill: '#91d5ff',
+        stroke: '#096dd9',
+        strokeWidth: 2,
+        opacity: 0.85
+      })
+      basicRenderer.circle({
+        cx: 180,
+        cy: 90,
+        r: 35,
+        fill: 'rgba(250, 173, 20, 0.6)',
+        stroke: '#d46b08'
+      })
+      basicRenderer.line({
+        x1: 40,
+        y1: 170,
+        x2: 260,
+        y2: 60,
+        stroke: '#722ed1',
         strokeWidth: 2
       })
-      
-      // 绘制矩形
-      renderer1.rect({
-        x: 100,
-        y: 80,
-        width: 100,
-        height: 60,
-        fill: 'green',
-        opacity: 0.7
-      })
-      
-      // 绘制圆形
-      renderer1.circle({
-        cx: 150,
-        cy: 100,
-        r: 40,
-        fill: 'red',
-        stroke: 'black',
-        strokeWidth: 2
-      })
-      
-      // 添加文本
-      renderer1.text({
+      basicRenderer.text({
         x: 150,
-        y: 180,
-        text: 'Hello Renderer!',
-        fill: 'purple',
-        fontSize: 16,
+        y: 190,
+        text: '网格 + 线/矩形/圆 示例',
+        fill: '#555',
+        fontSize: 12,
         textAnchor: 'middle'
       })
-      
-      // 绘制路径（三角形）
-      renderer1.path({
-        d: [
-          ['M', 200, 50],
-          ['L', 280, 150],
-          ['L', 120, 150],
-          ['Z']
-        ],
-        fill: 'orange',
-        opacity: 0.6
-      })
-      
-      svg1.appendChild(renderer1.node())
-      
-      // 测试第二个 SVG 画布
-      const svg2 = document.getElementById('svg2')
-      const renderer2 = createRenderer(300, 200)
-      
-      // 使用ring函数绘制三个同心圆环
-      renderer2.ring({
-        cx: 150,
-        cy: 100,
-        r1: 30,
-        r2: 50,
-        fill: '#42b883'
-      })
-      
-      renderer2.ring({
-        cx: 150,
-        cy: 100,
-        r1: 60,
-        r2: 70,
-        fill: '#35495e'
-      })
-      
-      renderer2.ring({
-        cx: 150,
-        cy: 100,
-        r1: 80,
-        r2: 90,
-        fill: '#ff6b6b'
-      })
-      
-      // 在圆环中心添加标题
-      renderer2.text({
-        x: 150,
-        y: 100,
-        text: 'Ring Demo',
-        fill: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-        textAnchor: 'middle',
-        dominantBaseline: 'central'
-      })
-      renderer2.translate(20, 20)
-      renderer2.scale(2, 2)
-      svg2.appendChild(renderer2.node())
+      mountRenderer(basicPlaceholder, basicRenderer)
 
-      
+      // === 2. 复杂图形组合 ===
+      const advancedPlaceholder = document.getElementById('svg-advanced')
+      const advancedRenderer = createRenderer(300, 200)
+      const series = [12, 30, 18, 26, 22]
+      const xScale = createLinear({
+        domain: [0, series.length - 1],
+        range: [30, 270]
+      })
+      const yScale = createLinear({
+        domain: [0, 30],
+        range: [160, 30]
+      })
+      const areaPath = [
+        ['M', xScale(0), yScale(series[0])],
+        ...series.slice(1).map((value, index) => [
+          'L',
+          xScale(index + 1),
+          yScale(value)
+        ]),
+        ['L', xScale(series.length - 1), 160],
+        ['L', xScale(0), 160],
+        ['Z']
+      ]
+      advancedRenderer.path({
+        d: areaPath,
+        fill: 'rgba(24, 144, 255, 0.25)',
+        stroke: '#1890ff',
+        strokeWidth: 2
+      })
+      series.forEach((value, index) => {
+        advancedRenderer.circle({
+          cx: xScale(index),
+          cy: yScale(value),
+          r: 5,
+          fill: '#1890ff',
+          stroke: '#fff',
+          strokeWidth: 2
+        })
+      })
+      advancedRenderer.text({
+        x: 150,
+        y: 20,
+        text: '折线 + 面积填充',
+        fill: '#333',
+        fontSize: 14,
+        textAnchor: 'middle'
+      })
+      mountRenderer(advancedPlaceholder, advancedRenderer)
+
+      // === 3. GUID 测试用例 ===
+      const guidContainer = document.getElementById('guid-cases')
+      const generateGuid = () =>
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `guid-${Math.random().toString(16).slice(2)}`
+
+      const guidTests = [
+        {
+          title: '随机色环',
+          draw: (renderer, guid) => {
+            const hue = parseInt(guid.slice(0, 2), 16) * 6
+            const fill = `hsl(${hue}, 70%, 55%)`
+            renderer.ring({
+              cx: 130,
+              cy: 80,
+              r1: 25,
+              r2: 60,
+              fill,
+              stroke: '#1f1f1f',
+              strokeWidth: 3
+            })
+            renderer.text({
+              x: 130,
+              y: 150,
+              text: guid.slice(0, 8),
+              fill: '#333',
+              fontSize: 12,
+              textAnchor: 'middle'
+            })
+          }
+        },
+        {
+          title: 'GUID 坐标散点',
+          draw: (renderer, guid) => {
+            const digits = Array.from(guid.replace(/-/g, '').slice(0, 12)).map((char) =>
+              parseInt(char, 16)
+            )
+            const scatterX = createLinear({ domain: [0, digits.length - 1], range: [20, 240] })
+            const scatterY = createLinear({ domain: [0, 15], range: [130, 30] })
+            ticks(30, 160, 4).forEach((tick) => {
+              renderer.line({
+                x1: 20,
+                y1: tick,
+                x2: 240,
+                y2: tick,
+                stroke: '#f0f0f0'
+              })
+            })
+            digits.forEach((digit, index) => {
+              renderer.circle({
+                cx: scatterX(index),
+                cy: scatterY(digit),
+                r: 4,
+                fill: '#52c41a'
+              })
+            })
+            renderer.text({
+              x: 130,
+              y: 150,
+              text: guid.slice(-6),
+              fill: '#389e0d',
+              fontSize: 12,
+              textAnchor: 'middle'
+            })
+          }
+        },
+        {
+          title: '路径签名',
+          draw: (renderer, guid) => {
+            const parts = guid.split('-')
+            const polyline = parts.map((part, index) => [
+              'L',
+              30 + index * 50,
+              140 - (parseInt(part.slice(0, 2), 16) % 100)
+            ])
+            const path = [
+              ['M', 30, 140],
+              ...polyline,
+              ['L', 30 + parts.length * 50, 140]
+            ]
+            renderer.path({
+              d: path,
+              stroke: '#fa541c',
+              strokeWidth: 2,
+              fill: 'rgba(250, 84, 28, 0.15)'
+            })
+            renderer.text({
+              x: 130,
+              y: 30,
+              text: guid.slice(0, 13),
+              fill: '#fa541c',
+              fontSize: 12,
+              textAnchor: 'middle'
+            })
+          }
+        }
+      ]
+
+      guidTests.forEach((test, index) => {
+        const guid = generateGuid()
+        const wrapper = document.createElement('div')
+        wrapper.className = 'guid-case'
+        const title = document.createElement('p')
+        title.textContent = `用例 ${index + 1}：${test.title}（GUID: ${guid}）`
+        wrapper.appendChild(title)
+        const renderer = createRenderer(260, 160)
+        test.draw(renderer, guid)
+        wrapper.appendChild(renderer.node())
+        guidContainer.appendChild(wrapper)
+      })
     </script>
   </body>
 </html>
