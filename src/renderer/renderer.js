@@ -17,7 +17,7 @@ export function createRenderer(width, height) {
     scale: (sx, sy) => scale(context, sx, sy),
     save: () => save(context),
     restore: () => restore(context),
-    node: () => context.node, // 下面会讲解
-    group: () => context.group // 下面会讲解
+    node: () => context.node,
+    group: () => context.group
   }
 }
