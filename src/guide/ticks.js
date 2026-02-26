@@ -1,5 +1,5 @@
 import { rotationOf, unique } from '../utils/array.js'
-import { degree } from '../utils'
+import { degree } from '../utils/index.js'
 
 export function ticksBottom(renderer, ticks, { tickLength, fontSize }) {
   for (const { x, y, text } of ticks) {
