@@ -1,6 +1,6 @@
 import { group } from '../utils'
 
-export function craeteSymmetryY() {
+export function createSymmetryY() {
   return ({ index, values }) => {
     const { x: X } = values
 
@@ -16,7 +16,7 @@ export function craeteSymmetryY() {
     //计算每个分组y方向的平均值
     const M = new Array(series.length)
     for (const [i, I] of Object.entries(series)) {
-      const Y = I.flatmap((i) =>
+      const Y = I.flatMap((i) =>
         Object.keys(newValues).map((key) => values[key][i])
       )
       const min = Math.min(...Y)
