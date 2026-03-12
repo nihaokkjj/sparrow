@@ -1,5 +1,9 @@
-// src/renderer/renderer.js
-
+import {
+  animateElement,
+  animateSequence,
+  animateStagger,
+  tween
+} from './animate.js'
 import { createContext } from './context.js'
 import { line, circle, text, rect, path, ring } from './shape.js'
 import { translate, rotate, scale, save, restore } from './transform.js'
@@ -17,6 +21,12 @@ export function createRenderer(width, height) {
     scale: (sx, sy) => scale(context, sx, sy),
     save: () => save(context),
     restore: () => restore(context),
+    animate: (element, from, to, options) =>
+      animateElement(element, from, to, options),
+    tween: (options) => tween(options),
+    sequence: (steps) => animateSequence(steps),
+    stagger: (items, factory, options) =>
+      animateStagger(items, factory, options),
     node: () => context.node,
     group: () => context.group
   }

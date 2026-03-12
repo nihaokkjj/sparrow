@@ -57,6 +57,11 @@
         display: block;
         border-radius: 4px;
       }
+      .demo-note {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0.5rem 0 0;
+      }
     </style>
   </head>
   <body>
@@ -90,12 +95,80 @@
         </p>
         <div class="guid-cases" id="guid-cases"></div>
       </div>
+
+      <div class="demo">
+        <h2>4. 动画示例</h2>
+        <svg
+          id="svg-animate"
+          width="300"
+          height="120"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">圆点会沿着水平轴来回运动。</p>
+      </div>
+
+      <div class="demo">
+        <h2>5. 柱状图生长动画</h2>
+        <svg
+          id="svg-bar"
+          width="400"
+          height="220"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">柱子从基线向上生长，带有轻微错峰。</p>
+      </div>
+
+      <div class="demo">
+        <h2>6. 饼图顺时针出现</h2>
+        <svg
+          id="svg-pie"
+          width="260"
+          height="260"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">每个扇区依次顺时针扫过。</p>
+      </div>
+
+      <div class="demo">
+        <h2>7. 折线描边动画</h2>
+        <svg
+          id="svg-line"
+          width="360"
+          height="180"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">使用 stroke-dasharray / stroke-dashoffset 实现描边动画。</p>
+      </div>
+
+      <div class="demo">
+        <h2>8. 多系列柱状图动画</h2>
+        <svg
+          id="svg-bar-multi"
+          width="500"
+          height="260"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">单一 RAF 时间轴驱动所有柱子动画，避免定时器误差。</p>
+      </div>
+
+      <div class="demo">
+        <h2>9. 分面饼图示例</h2>
+        <svg
+          id="svg-pie-facet"
+          width="520"
+          height="360"
+          style="border: 1px solid #ddd; border-radius: 4px"
+        ></svg>
+        <p class="demo-note">使用 facet 视图拆分多个扇形图。</p>
+      </div>
     </div>
 
     <script type="module">
       import { createRenderer } from '/src/renderer/renderer.js'
       import { createLinear } from '/src/scale/linear.js'
+      import { createBand } from '/src/scale/band.js'
       import { ticks } from '/src/scale/utils.js'
+      import { computeFacetViews } from '/src/views/facet.js'
 
       const mountRenderer = (placeholder, renderer) => {
         const node = renderer.node()
@@ -334,10 +407,454 @@
         })
       }
 
+      const renderAnimateDemo = () => {
+        const placeholder = document.getElementById('svg-animate')
+        const renderer = createRenderer(300, 120)
+        renderer.line({
+          x1: 20,
+          y1: 60,
+          x2: 280,
+          y2: 60,
+          stroke: '#e5e5e5',
+          strokeWidth: 2
+        })
+        const dot = renderer.circle({
+          cx: 20,
+          cy: 60,
+          r: 8,
+          fill: '#ff7a45'
+        })
+        renderer.text({
+          x: 150,
+          y: 100,
+          text: 'animate() demo',
+          fill: '#666',
+          fontSize: 12,
+          textAnchor: 'middle'
+        })
+        mountRenderer(placeholder, renderer)
+
+        const run = (from, to, reverse = false) => {
+          renderer.animate(dot, { cx: from }, { cx: to }, {
+            duration: 900,
+            ease: 'easeInOut',
+            onComplete: () => run(to, from, !reverse)
+          })
+        }
+        run(20, 280)
+      }
+
+      const renderBarDemo = () => {
+        const placeholder = document.getElementById('svg-bar')
+        const renderer = createRenderer(400, 220)
+        const data = [
+          { label: 'A', value: 24 },
+          { label: 'B', value: 18 },
+          { label: 'C', value: 32 },
+          { label: 'D', value: 14 },
+          { label: 'E', value: 28 }
+        ]
+        const maxValue = Math.max(...data.map((d) => d.value))
+        const xScale = createBand({
+          domain: data.map((d) => d.label),
+          range: [40, 360],
+          padding: 0.2
+        })
+        const yScale = createLinear({
+          domain: [0, maxValue],
+          range: [180, 20]
+        })
+
+        renderer.line({
+          x1: 40,
+          y1: 180,
+          x2: 360,
+          y2: 180,
+          stroke: '#e5e5e5',
+          strokeWidth: 2
+        })
+
+        data.forEach((d, i) => {
+          const x = xScale(d.label)
+          const width = xScale.bandWidth()
+          const baseY = yScale(0)
+          const targetY = yScale(d.value)
+          const targetH = baseY - targetY
+          const bar = renderer.rect({
+            x,
+            y: baseY,
+            width,
+            height: 0,
+            fill: '#5B8FF9'
+          })
+          setTimeout(() => {
+            renderer.animate(
+              bar,
+              { y: baseY, height: 0 },
+              { y: targetY, height: targetH },
+              { duration: 700, ease: 'easeOut' }
+            )
+          }, i * 120)
+        })
+
+        renderer.text({
+          x: 200,
+          y: 205,
+          text: 'Bar Grow Animation',
+          fill: '#666',
+          fontSize: 12,
+          textAnchor: 'middle'
+        })
+
+        mountRenderer(placeholder, renderer)
+      }
+
+      const arcPath = (cx, cy, r, start, end) => {
+        const x1 = cx + r * Math.cos(start)
+        const y1 = cy + r * Math.sin(start)
+        const x2 = cx + r * Math.cos(end)
+        const y2 = cy + r * Math.sin(end)
+        const largeArc = end - start > Math.PI ? 1 : 0
+        return [
+          ['M', cx, cy],
+          ['L', x1, y1],
+          ['A', r, r, 0, largeArc, 1, x2, y2],
+          ['Z']
+        ]
+      }
+
+      const toPathD = (segments) => segments.flat().join(' ')
+
+      const renderPieDemo = () => {
+        const placeholder = document.getElementById('svg-pie')
+        const renderer = createRenderer(260, 260)
+        const data = [30, 20, 15, 10, 25]
+        const colors = ['#5B8FF9', '#5AD8A6', '#F6BD16', '#6F5EF9', '#FF9845']
+        const total = data.reduce((sum, v) => sum + v, 0)
+        const cx = 130
+        const cy = 130
+        const r = 90
+        let current = -Math.PI / 2
+
+        const slices = data.map((value, i) => {
+          const angle = (value / total) * Math.PI * 2
+          const start = current
+          const end = current + angle
+          current = end
+          const path = renderer.path({
+            d: arcPath(cx, cy, r, start, start),
+            fill: colors[i % colors.length],
+            stroke: '#fff',
+            strokeWidth: 2
+          })
+          return { start, end, path }
+        })
+
+        mountRenderer(placeholder, renderer)
+
+        const easeInOut = (t) =>
+          t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+        const animateAngle = (start, end, onUpdate, onComplete) => {
+          const startTime = performance.now()
+          const duration = 700
+          const tick = (now) => {
+            const t = Math.min((now - startTime) / duration, 1)
+            const k = easeInOut(t)
+            const cur = start + (end - start) * k
+            onUpdate(cur)
+            if (t < 1) requestAnimationFrame(tick)
+            else if (onComplete) onComplete()
+          }
+          requestAnimationFrame(tick)
+        }
+
+        const runSlice = (index) => {
+          if (index >= slices.length) return
+          const { start, end, path } = slices[index]
+          animateAngle(
+            start,
+            end,
+            (cur) => path.setAttribute('d', toPathD(arcPath(cx, cy, r, start, cur))),
+            () => runSlice(index + 1)
+          )
+        }
+
+        runSlice(0)
+      }
+
+      const renderLineStrokeDemo = () => {
+        const placeholder = document.getElementById('svg-line')
+        const renderer = createRenderer(360, 180)
+        const data = [18, 42, 28, 55, 36, 62]
+        const xScale = createLinear({
+          domain: [0, data.length - 1],
+          range: [30, 330]
+        })
+        const yScale = createLinear({
+          domain: [0, 70],
+          range: [140, 20]
+        })
+        const points = data.map((value, index) => [xScale(index), yScale(value)])
+        const d = [
+          ['M', ...points[0]],
+          ...points.slice(1).map((point) => ['L', ...point])
+        ]
+        const path = renderer.path({
+          d,
+          fill: 'none',
+          stroke: '#5B8FF9',
+          strokeWidth: 2
+        })
+        points.forEach(([x, y]) => {
+          renderer.circle({
+            cx: x,
+            cy: y,
+            r: 3,
+            fill: '#5B8FF9'
+          })
+        })
+        renderer.line({
+          x1: 30,
+          y1: 140,
+          x2: 330,
+          y2: 140,
+          stroke: '#e5e5e5'
+        })
+        renderer.text({
+          x: 180,
+          y: 165,
+          text: 'Line Stroke Animation',
+          fill: '#666',
+          fontSize: 12,
+          textAnchor: 'middle'
+        })
+        mountRenderer(placeholder, renderer)
+
+        const length = path.getTotalLength()
+        path.setAttribute('stroke-dasharray', length)
+        path.setAttribute('stroke-dashoffset', length)
+        renderer.animate(
+          path,
+          { 'stroke-dashoffset': length },
+          { 'stroke-dashoffset': 0 },
+          { duration: 1000, ease: 'easeOut' }
+        )
+      }
+
+      const renderMultiBarDemo = () => {
+        const placeholder = document.getElementById('svg-bar-multi')
+        const renderer = createRenderer(500, 260)
+        const data = [
+          { category: 'A', values: [12, 20, 8] },
+          { category: 'B', values: [18, 14, 22] },
+          { category: 'C', values: [10, 26, 16] },
+          { category: 'D', values: [24, 18, 12] }
+        ]
+        const colors = ['#5B8FF9', '#5AD8A6', '#F6BD16']
+        const seriesCount = data[0].values.length
+        const maxValue = Math.max(...data.flatMap((d) => d.values))
+        const margin = { left: 50, right: 20, top: 20, bottom: 40 }
+        const baseY = 220
+
+        const xScale = createBand({
+          domain: data.map((d) => d.category),
+          range: [margin.left, 500 - margin.right],
+          padding: 0.2
+        })
+        const xInner = createBand({
+          domain: Array.from({ length: seriesCount }, (_, i) => i),
+          range: [0, xScale.bandWidth()],
+          padding: 0.15
+        })
+        const yScale = createLinear({
+          domain: [0, maxValue],
+          range: [baseY, margin.top]
+        })
+
+        renderer.line({
+          x1: margin.left,
+          y1: baseY,
+          x2: 500 - margin.right,
+          y2: baseY,
+          stroke: '#e5e5e5'
+        })
+
+        const bars = []
+        data.forEach((d, groupIndex) => {
+          const groupX = xScale(d.category)
+          d.values.forEach((value, seriesIndex) => {
+            const x = groupX + xInner(seriesIndex)
+            const width = xInner.bandWidth()
+            const targetY = yScale(value)
+            const targetH = baseY - targetY
+            const rect = renderer.rect({
+              x,
+              y: baseY,
+              width,
+              height: 0,
+              fill: colors[seriesIndex % colors.length]
+            })
+            bars.push({
+              rect,
+              baseY,
+              targetY,
+              targetH,
+              delay: (groupIndex * seriesCount + seriesIndex) * 80
+            })
+          })
+        })
+
+        renderer.text({
+          x: 250,
+          y: 245,
+          text: 'Grouped Bar Animation',
+          fill: '#666',
+          fontSize: 12,
+          textAnchor: 'middle'
+        })
+
+        mountRenderer(placeholder, renderer)
+
+        const duration = 700
+        const start = performance.now()
+        const easeOut = (t) => 1 - (1 - t) * (1 - t)
+
+        const tick = (now) => {
+          let done = true
+          bars.forEach((bar) => {
+            const t = (now - start - bar.delay) / duration
+            const k = Math.max(0, Math.min(1, t))
+            if (k < 1) done = false
+            const eased = easeOut(k)
+            const y = bar.baseY + (bar.targetY - bar.baseY) * eased
+            const h = bar.targetH * eased
+            bar.rect.setAttribute('y', y)
+            bar.rect.setAttribute('height', h)
+          })
+          if (!done) requestAnimationFrame(tick)
+        }
+
+        requestAnimationFrame(tick)
+      }
+
+      const renderFacetPieDemo = () => {
+        const placeholder = document.getElementById('svg-pie-facet')
+        const renderer = createRenderer(520, 360)
+
+        const data = [
+          { region: 'North', segment: 'A', category: 'Alpha', value: 22 },
+          { region: 'North', segment: 'A', category: 'Beta', value: 12 },
+          { region: 'North', segment: 'A', category: 'Gamma', value: 16 },
+          { region: 'North', segment: 'B', category: 'Alpha', value: 18 },
+          { region: 'North', segment: 'B', category: 'Beta', value: 10 },
+          { region: 'North', segment: 'B', category: 'Gamma', value: 14 },
+          { region: 'South', segment: 'A', category: 'Alpha', value: 14 },
+          { region: 'South', segment: 'A', category: 'Beta', value: 20 },
+          { region: 'South', segment: 'A', category: 'Gamma', value: 12 },
+          { region: 'South', segment: 'B', category: 'Alpha', value: 16 },
+          { region: 'South', segment: 'B', category: 'Beta', value: 8 },
+          { region: 'South', segment: 'B', category: 'Gamma', value: 18 },
+          { region: 'East', segment: 'A', category: 'Alpha', value: 20 },
+          { region: 'East', segment: 'A', category: 'Beta', value: 16 },
+          { region: 'East', segment: 'A', category: 'Gamma', value: 10 },
+          { region: 'East', segment: 'B', category: 'Alpha', value: 12 },
+          { region: 'East', segment: 'B', category: 'Beta', value: 18 },
+          { region: 'East', segment: 'B', category: 'Gamma', value: 14 }
+        ]
+
+        const colors = ['#5B8FF9', '#5AD8A6', '#F6BD16']
+        const box = { x: 0, y: 0, width: 520, height: 360 }
+        const views = computeFacetViews(box, {
+          data,
+          encodings: { x: 'region', y: 'segment' },
+          padding: 16,
+          paddingLeft: 30,
+          paddingRight: 20,
+          paddingTop: 30,
+          paddingBottom: 30
+        })
+
+        const groupBy = (array, key) => {
+          const map = new Map()
+          array.forEach((item) => {
+            const k = key(item)
+            const list = map.get(k) || []
+            list.push(item)
+            map.set(k, list)
+          })
+          return map
+        }
+
+        views.forEach((view) => {
+          const subset = view.transform(data)
+          if (!subset.length) return
+          const grouped = groupBy(subset, (d) => d.category)
+          const slices = Array.from(grouped.entries()).map(([key, items]) => ({
+            key,
+            value: items.reduce((sum, item) => sum + item.value, 0)
+          }))
+          const total = slices.reduce((sum, d) => sum + d.value, 0)
+          const cx = view.x + view.width / 2
+          const cy = view.y + view.height / 2 + 6
+          const r = Math.min(view.width, view.height) / 2 - 12
+
+          let current = -Math.PI / 2
+          slices.forEach((slice, i) => {
+            const angle = (slice.value / total) * Math.PI * 2
+            const start = current
+            const end = current + angle
+            current = end
+            renderer.path({
+              d: arcPath(cx, cy, r, start, end),
+              fill: colors[i % colors.length],
+              stroke: '#fff',
+              strokeWidth: 1
+            })
+          })
+
+          const tag = subset[0]
+          renderer.text({
+            x: view.x + view.width / 2,
+            y: view.y + 14,
+            text: `${tag.region} / ${tag.segment}`,
+            fill: '#444',
+            fontSize: 11,
+            textAnchor: 'middle'
+          })
+
+          renderer.rect({
+            x: view.x,
+            y: view.y,
+            width: view.width,
+            height: view.height,
+            fill: 'transparent',
+            stroke: '#f0f0f0'
+          })
+        })
+
+        renderer.text({
+          x: 260,
+          y: 340,
+          text: 'Facet Pie Example',
+          fill: '#666',
+          fontSize: 12,
+          textAnchor: 'middle'
+        })
+
+        mountRenderer(placeholder, renderer)
+      }
+
       const runDemos = (options = {}) => {
         renderBasicDemo()
         renderAdvancedDemo()
         renderGuidCases(options.guidList || [])
+        renderAnimateDemo()
+        renderBarDemo()
+        renderPieDemo()
+        renderLineStrokeDemo()
+        renderMultiBarDemo()
+        renderFacetPieDemo()
       }
 
       window.runSparrowDemos = runDemos
