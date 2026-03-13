@@ -1,3 +1,5 @@
 export * from './helper.js'
 export * from './array.js'
 export * from './tree.js'
+export * from './vector.js'
+export * from './dom.js'

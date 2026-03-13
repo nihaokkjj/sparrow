@@ -1,14 +1,4 @@
-import {
-  interval,
-  line,
-  area,
-  text,
-  link,
-  cell,
-  rect,
-  point,
-  path
-} from '../geometry'
+import { point } from '../geometry/point.js'
 import {
   createBand,
   createIdentity,
@@ -30,20 +20,26 @@ import {
   createStackY
 } from '../statistic'
 
+const unsupportedGeometryTypes = new Set([
+  'interval',
+  'line',
+  'area',
+  'text',
+  'link',
+  'cell',
+  'rect',
+  'path'
+])
+
 export function create(options) {
   if (typeof options === 'function') return options
   const { type, ...rest } = options
 
   // geometries
-  if (type === 'interval') return interval
-  if (type === 'line') return line
-  if (type === 'area') return area
-  if (type === 'text') return text
-  if (type === 'link') return link
-  if (type === 'cell') return cell
-  if (type === 'rect') return rect
   if (type === 'point') return point
-  if (type === 'path') return path
+  if (unsupportedGeometryTypes.has(type)) {
+    throw new Error(`Geometry "${type}" is not implemented yet.`)
+  }
 
   // facet
   if (type === 'facet') {

@@ -1,5 +1,5 @@
 import { compose, indexOf } from '../utils'
-import { inferEncodings, valueOf } from './encoding'
+import { inferEncodings, valueOf } from './geometry.js'
 import { create } from './create'
 
 export function initialize({

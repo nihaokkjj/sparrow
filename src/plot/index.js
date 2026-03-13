@@ -1,1 +1,1 @@
-export { plot } from './plot.js'
+export { inferScales, applyScales } from './plot.js'

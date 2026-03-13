@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { createBinX } from '../../src/statistc/bin'
+import { createBinX } from '../../src/statistic/bin.js'
 
 test('createBinX', () => {
   const data = {
