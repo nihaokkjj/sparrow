@@ -1,5 +1,5 @@
 {
-  "name": "@ksj/sparrow",
+  "name": "@ksj_sparrow/sparrow",
   "version": "0.1.0",
   "description": "Lightweight SVG renderer and visualization primitives.",
   "type": "module",
@@ -34,8 +34,7 @@
     "node": ">=18"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "dev": "vite dev",
