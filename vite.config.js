@@ -3,7 +3,7 @@ import path from 'node:path'
 export default {
   build: {
     lib: {
-      entry: 'src/renderer/renderer.js',
+      entry: 'src/index.js',
       name: 'sparrow',
       fileName: 'sparrow',
       formats: ['es', 'umd']

@@ -1,15 +1,50 @@
 {
-  "name": "sparrow",
-  "private": true,
-  "version": "0.0.0",
+  "name": "@ksj/sparrow",
+  "version": "0.1.0",
+  "description": "Lightweight SVG renderer and visualization primitives.",
   "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/sparrow.umd.cjs",
+  "module": "./dist/sparrow.js",
+  "exports": {
+    ".": {
+      "import": "./dist/sparrow.js",
+      "require": "./dist/sparrow.umd.cjs"
+    }
+  },
+  "license": "MIT",
+  "author": "nihaokkjj",
+  "homepage": "https://github.com/nihaokkjj/sparrow#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nihaokkjj/sparrow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nihaokkjj/sparrow/issues"
+  },
+  "keywords": [
+    "svg",
+    "renderer",
+    "visualization",
+    "chart",
+    "graphics"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "test": "vitest run --coverage",
     "test:browser": "vitest --config=vitest.browser.config.js",
     "prepare": "husky install",
-    "ci": "run-s test build"
+    "ci": "run-s test build",
+    "prepublishOnly": "run-s test build"
   },
   "lint-staged": {
     "*.js": [
