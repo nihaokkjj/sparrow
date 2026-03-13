@@ -7,6 +7,7 @@ import {
   angleBetween,
   angle,
   degree,
+  rotationOf,
   unique
 } from '../../src/utils/vector.js'
 
@@ -26,6 +27,17 @@ describe('vector utils', () => {
     expect(angle([0, 1])).toBeCloseTo(Math.PI / 2)
     expect(degree(Math.PI)).toBe(180)
     expect(angleBetween([1, 0], [0, 1])).toBeCloseTo(Math.PI / 2)
+  })
+
+  test('rotationOf returns tick and label rotations for circular axes', () => {
+    expect(rotationOf([0, 0], [1, 0])).toEqual({
+      tickRotation: -Math.PI / 2,
+      textRotation: 0
+    })
+    expect(rotationOf([0, 0], [-1, 0])).toEqual({
+      tickRotation: Math.PI / 2,
+      textRotation: Math.PI
+    })
   })
 
   test('unique removes near-duplicate points', () => {

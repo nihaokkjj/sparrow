@@ -1,4 +1,8 @@
-import { createLinear, interpolateNumber } from '../../src/scale/linear.js'
+import {
+  createLinear,
+  interpolateNumber,
+  interpolateColor
+} from '../../src/scale/linear.js'
 import { expect, test } from 'vitest'
 function nice(domain, niceDomain, tickCount) {
   const scale = createLinear({
@@ -72,4 +76,10 @@ test('scale.ticks() return ticks in 1, 2, 5 * 10 ^ n format', () => {
   expect(ticks([0, 1], 3)).toEqual([0, 0.5, 1])
   expect(ticks([0, 1], 2)).toEqual([0, 0.5, 1])
   expect(ticks([0, 1], 1)).toEqual([0, 1])
+})
+
+test('interpolateColor() blends hex colors channel by channel', () => {
+  expect(interpolateColor(0, '#000000', '#ffffff')).toBe('#000000')
+  expect(interpolateColor(1, '#000000', '#ffffff')).toBe('#ffffff')
+  expect(interpolateColor(0.5, '#000000', '#ffffff')).toBe('#808080')
 })

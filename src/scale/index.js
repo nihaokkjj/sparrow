@@ -1,4 +1,4 @@
-export { createLinear, interpolateNumber } from './linear'
+export { createLinear, interpolateNumber, interpolateColor } from './linear'
 export { createIdentity } from './identity'
 export { createOrdinal } from './ordinal'
 export { createBand } from './band'

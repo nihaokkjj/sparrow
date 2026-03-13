@@ -30,6 +30,16 @@ export function degree(radian) {
   return (radian * 180) / Math.PI
 }
 
+export function rotationOf(center, point) {
+  const theta = angle(sub(point, center))
+  return {
+    // Rotate the default downward tick direction so it points away from center.
+    tickRotation: theta - Math.PI / 2,
+    // Flip labels on the left half to keep them upright.
+    textRotation: Math.cos(theta) < 0 ? Math.PI : 0
+  }
+}
+
 export function unique(points, x = (d) => d[0], y = (d) => d[1]) {
   const overlap = (a, b) => closeTo(x(a), x(b)) && closeTo(y(a), y(b))
   return points.filter(

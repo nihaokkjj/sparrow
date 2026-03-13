@@ -24,3 +24,29 @@ export function createLinear({
 export function interpolateNumber(t, start, stop) {
   return start * (1 - t) + stop * t
 }
+
+export function interpolateColor(t, start, stop) {
+  const [r0, g0, b0] = parseHexColor(start)
+  const [r1, g1, b1] = parseHexColor(stop)
+  const mix = (a, b) => Math.round(interpolateNumber(t, a, b))
+  return toHexColor(mix(r0, r1), mix(g0, g1), mix(b0, b1))
+}
+
+function parseHexColor(color) {
+  const hex = color.startsWith('#') ? color.slice(1) : color
+  if (hex.length === 3) {
+    return hex.split('').map((d) => Number.parseInt(`${d}${d}`, 16))
+  }
+  if (hex.length === 6) {
+    return [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map((d) =>
+      Number.parseInt(d, 16)
+    )
+  }
+  throw new Error(`Unsupported color format: ${color}`)
+}
+
+function toHexColor(r, g, b) {
+  return `#${[r, g, b]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')}`
+}

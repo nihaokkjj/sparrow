@@ -3,6 +3,7 @@ import { identity } from '../utils'
 // components 不同坐标系对应的绘制组件
 // labelOf 获取标签绘制需要的刻度
 export function createAxis(components, labelOf) {
+  const pickLabelTick = labelOf || ((ticks) => ticks[ticks.length - 1])
   // renderer 渲染器
   // scale 比例尺
   // cooridante 坐标系
@@ -57,6 +58,6 @@ export function createAxis(components, labelOf) {
     // 按需绘制格子、刻度和标签
     if (grid && Grid) Grid(renderer, ticks, end(coordinate))
     if (tick && Ticks) Ticks(renderer, ticks, options)
-    if (label && Label) Label(renderer, label, labelOf(ticks), options)
+    if (label && Label) Label(renderer, label, pickLabelTick(ticks), options)
   }
 }
