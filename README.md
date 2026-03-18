@@ -1,3 +1,107 @@
+```mermaid
+flowchart TD
+    A["npm 包入口\nsrc/index.js"] --> B["createRenderer\nsrc/renderer/renderer.js"]
+
+    subgraph P["对外稳定发布层"]
+      A
+      B
+    end
+
+    subgraph R["Renderer 渲染层"]
+      B --> R1["context\n创建 svg / g\nsrc/renderer/context.js"]
+      B --> R2["shape\nline / rect / circle / path / text / ring\nsrc/renderer/shape.js"]
+      B --> R3["transform\ntranslate / rotate / scale / save / restore\nsrc/renderer/transform.js"]
+      B --> R4["animate\ntween / sequence / stagger\nsrc/renderer/animate.js"]
+      R1 --> R2
+      R1 --> R3
+    end
+
+    subgraph C["Coordinate 坐标变换层"]
+      C0["createCoordinate\nsrc/coordinate/coordinate.js"]
+      C1["cartesian\nsrc/coordinate/cartesian.js"]
+      C2["polar\nsrc/coordinate/polar.js"]
+      C3["transpose\nsrc/coordinate/transpose.js"]
+      C4["基础 transforms\nsrc/coordinate/transforms.js"]
+      C1 --> C4
+      C2 --> C4
+      C3 --> C4
+      C0 --> C1
+      C0 --> C2
+      C0 --> C3
+    end
+
+    subgraph S["Scale 比例尺层"]
+      S0["scale index\nsrc/scale/index.js"]
+      S1["linear / log / time"]
+      S2["ordinal / band / point"]
+      S3["quantile / quantize / threshold"]
+      S4["tickStep / nice / ticks\nsrc/scale/utils.js"]
+      S0 --> S1
+      S0 --> S2
+      S0 --> S3
+      S1 --> S4
+    end
+
+    subgraph G["Geometry 图元层"]
+      G0["point mark\nsrc/geometry/point.js"]
+      G1["channel 定义\nsrc/geometry/channel.js"]
+      G2["channelStyles\nsrc/geometry/style.js"]
+      G0 --> G1
+      G0 --> G2
+    end
+
+    subgraph T["Statistic 统计变换层"]
+      T0["bin\nsrc/statistic/bin.js"]
+      T1["stack\nsrc/statistic/stack.js"]
+      T2["normalize\nsrc/statistic/normalize.js"]
+      T3["symmetry\nsrc/statistic/symmetry.js"]
+    end
+
+    subgraph U["Guide 引导层"]
+      U0["axisX / axisY\nsrc/guide/axisX.js\nsrc/guide/axisY.js"]
+      U1["axis 公共逻辑\nsrc/guide/axis.js"]
+      U2["ticks / grid\nsrc/guide/ticks.js\nsrc/guide/grid.js"]
+      U3["legendRamp / legendSwatches"]
+      U0 --> U1
+      U1 --> U2
+      U3 --> U1
+    end
+
+    subgraph V["Views 视图布局层"]
+      V0["createViews\nsrc/views/view.js"]
+      V1["row / col\nsrc/views/flex.js"]
+      V2["layer\nsrc/views/layer.js"]
+      V3["facet\nsrc/views/facet.js"]
+      V0 --> V1
+      V0 --> V2
+      V0 --> V3
+    end
+
+    subgraph L["Plot 图形语法层"]
+      L0["create\nsrc/plot/create.js"]
+      L1["initialize / encoding\nsrc/plot/encoding.js"]
+      L2["inferScales / applyScales\nsrc/plot/plot.js"]
+      L3["inferGuides\nsrc/plot/guide.js"]
+      L4["geometry encoding helper\nsrc/plot/geometry.js"]
+      L0 --> L1
+      L1 --> L4
+      L1 --> T0
+      L1 --> T1
+      L1 --> T2
+      L1 --> T3
+      L2 --> S0
+      L3 --> U0
+      L3 --> U3
+    end
+
+    L1 --> G0
+    L2 --> C0
+    G0 --> B
+    U0 --> B
+    U3 --> B
+    V0 --> L0
+
+```
 # Sparrow
 
 Lightweight SVG renderer and visualization primitives.
