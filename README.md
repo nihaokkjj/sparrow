@@ -102,6 +102,26 @@ flowchart TD
     V0 --> L0
 
 ```
+模块调用关系
+```mermaid
+flowchart LR
+    A["原始数据 data"] --> B["encoding 初始化\nsrc/plot/encoding.js"]
+    B --> C["提取字段 / 常量 / transform 值"]
+    C --> D["统计变换\nbin / stack / normalize / symmetry"]
+    D --> E["geometry.channels()\n确定 mark 需要的通道"]
+    E --> F["inferScales\nsrc/plot/plot.js"]
+    F --> G["创建各类 scale"]
+    G --> H["applyScales\n把值映射到视觉通道"]
+    H --> I["createCoordinate\n做坐标系组合变换"]
+    I --> J["geometry 渲染\n如 point -> circle"]
+    J --> K["renderer.draw\n输出到 SVG"]
+    G --> M["inferGuides\n生成 axis / legend"]
+    M --> N["guide 渲染"]
+    N --> K
+    O["views 布局\nrow / col / layer / facet"] --> B
+    O --> M
+
+```
 # Sparrow
 
 Lightweight SVG renderer and visualization primitives.
