@@ -127,8 +127,8 @@ flowchart LR
 Lightweight SVG renderer and visualization primitives.
 
 Sparrow is a small front-end rendering library centered around an SVG renderer.
-The current published package focuses on the stable renderer API exposed by
-`createRenderer`.
+The published package exposes a stable core built around `createRenderer`,
+plus reusable coordinate, scale, and statistic primitives.
 
 ![Sparrow renderer example](./docs/readme-example.svg)
 
@@ -247,6 +247,42 @@ core methods:
 - `node()`
 - `group()`
 
+In addition to the renderer, the package also exposes these stable building
+blocks from the root entry:
+
+- Coordinate: `createCoordinate`, `cartesian`, `polar`, `transpose`
+- Scale: `createLinear`, `createLog`, `createTime`, `createBand`,
+  `createPoint`, `createOrdinal`, `createQuantile`, `createQuantize`,
+  `createThreshold`, `createIdentity`, `interpolateNumber`,
+  `interpolateColor`
+- Statistic: `createBinX`, `createNormalizeY`, `createStackY`,
+  `createSymmetryY`
+
+Example:
+
+```js
+import {
+  createRenderer,
+  polar,
+  createLinear,
+  createStackY
+} from '@ksj_sparrow/sparrow'
+
+const angle = createLinear({
+  domain: [0, 100],
+  range: [0, 1]
+})
+
+const coordinate = polar({
+  startAngle: -Math.PI / 2,
+  endAngle: (Math.PI / 2) * 3,
+  innerRadius: 0,
+  outerRadius: 1
+})
+
+const stackY = createStackY()
+```
+
 ## Notes
 
 - `node()` returns the root `<svg>` element, which you can append directly to
@@ -260,16 +296,38 @@ core methods:
 
 ## Package Scope
 
-This npm package currently focuses on the stable renderer entry point:
+This npm package currently exposes the following stable public APIs from the
+root entry:
 
 ```js
-import { createRenderer } from '@ksj_sparrow/sparrow'
+import {
+  createRenderer,
+  createCoordinate,
+  cartesian,
+  polar,
+  transpose,
+  createLinear,
+  createIdentity,
+  createOrdinal,
+  createBand,
+  createPoint,
+  createQuantile,
+  createThreshold,
+  createQuantize,
+  createTime,
+  createLog,
+  interpolateNumber,
+  interpolateColor,
+  createBinX,
+  createNormalizeY,
+  createStackY,
+  createSymmetryY
+} from '@ksj_sparrow/sparrow'
 ```
 
-The repository also contains higher-level modules such as scale, coordinate,
-guide, statistic, plot, and views. Those modules are still evolving in the
-repository and are not yet treated as stable public APIs for the published
-package.
+Higher-level modules such as guide, plot, views, and geometry internals are
+still evolving in the repository and are not yet treated as stable public APIs
+for the published package.
 
 ## Development
 

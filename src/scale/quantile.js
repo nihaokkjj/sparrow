@@ -2,7 +2,7 @@ import { createThreshold } from './threshold.js'
 
 export function createQuantile({ domain, range, ...rest }) {
   const n = range.length - 1
-  const sortedDomain = domain.sort((a, b) => a - b)
+  const sortedDomain = [...domain].sort((a, b) => a - b)
   const step = (sortedDomain.length - 1) / (n + 1)
   const quantileDomain = new Array(n).fill(0).map((_, index) => {
     const i = (index + 1) * step

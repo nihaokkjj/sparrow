@@ -85,7 +85,9 @@ export function mean(array, accessor = identity) {
 }
 
 export function median(array, accessor = identity) {
-  const sortedValues = [...array].map(accessor).sort()
+  const sortedValues = [...array]
+    .map(accessor)
+    .sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   const i = (sortedValues.length - 1) / 2
   const a = sortedValues[Math.floor(i)]
   const b = sortedValues[Math.ceil(i)]

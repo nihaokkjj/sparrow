@@ -72,7 +72,11 @@ export function createBinX({
           channel,
           I.map((i) => {
             if (!groups.has(i)) return 0
-            return aggregate(groups.get(i).map((index) => values[index]))
+            const groupIndices = groups.get(i)
+            const groupValues = C
+              ? groupIndices.map((dataIndex) => C[dataIndex])
+              : groupIndices
+            return aggregate(groupValues)
           })
         ],
 

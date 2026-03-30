@@ -1,5 +1,5 @@
-import { createQuantile } from '../../src/scale/quantile.js'
 import { expect, test } from 'vitest'
+import { createQuantile } from '../../src/scale/quantile.js'
 
 test('createQuantile(options) finds right interval based on rank and returns corresponding value in range.', () => {
   const s = createQuantile({
@@ -15,4 +15,15 @@ test('createQuantile(options) finds right interval based on rank and returns cor
   expect(s(13)).toBe('c')
   expect(s(14.9)).toBe('d')
   expect(s(20)).toBe('d')
+})
+
+test('createQuantile(options) does not mutate the provided domain.', () => {
+  const domain = [10, 3, 7, 6, 8]
+
+  createQuantile({
+    domain,
+    range: ['a', 'b', 'c']
+  })
+
+  expect(domain).toEqual([10, 3, 7, 6, 8])
 })
