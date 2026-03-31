@@ -1,12 +1,18 @@
 /// <reference types="vitest/config" />
 import path from 'node:path'
+
 export default {
   build: {
     lib: {
-      entry: 'src/index.js',
-      name: 'sparrow',
-      fileName: 'sparrow',
-      formats: ['es', 'umd']
+      entry: {
+        sparrow: path.resolve(__dirname, './src/index.js'),
+        plot: path.resolve(__dirname, './src/plot/index.js'),
+        guide: path.resolve(__dirname, './src/guide/index.js'),
+        views: path.resolve(__dirname, './src/views/index.js')
+      },
+      formats: ['es', 'cjs'],
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'js' : 'cjs'}`
     }
   },
   resolve: {

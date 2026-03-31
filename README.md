@@ -325,9 +325,37 @@ import {
 } from '@ksj_sparrow/sparrow'
 ```
 
-Higher-level modules such as guide, plot, views, and geometry internals are
-still evolving in the repository and are not yet treated as stable public APIs
-for the published package.
+The root entry keeps a smaller stable surface focused on renderer,
+coordinate, scale, and statistic primitives. Higher-level modules such as
+plot, guide, and views are additionally exposed through subpath imports so
+they can evolve with clearer boundaries than the root package entry.
+
+## Subpath Imports
+
+The package also ships focused subpath entry points for advanced usage:
+
+```js
+import {
+  create,
+  register,
+  initialize,
+  inferGuides,
+  inferScales,
+  applyScales
+} from '@ksj_sparrow/sparrow/plot'
+
+import {
+  axisX,
+  axisY,
+  legendRamp,
+  legendSwatches
+} from '@ksj_sparrow/sparrow/guide'
+
+import { createViews } from '@ksj_sparrow/sparrow/views'
+```
+
+These subpaths are useful when you want a narrower public surface instead of
+importing everything from the root package entry.
 
 ## Development
 

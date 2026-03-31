@@ -7,12 +7,24 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/sparrow.umd.cjs",
+  "main": "./dist/sparrow.cjs",
   "module": "./dist/sparrow.js",
   "exports": {
     ".": {
       "import": "./dist/sparrow.js",
-      "require": "./dist/sparrow.umd.cjs"
+      "require": "./dist/sparrow.cjs"
+    },
+    "./plot": {
+      "import": "./dist/plot.js",
+      "require": "./dist/plot.cjs"
+    },
+    "./guide": {
+      "import": "./dist/guide.js",
+      "require": "./dist/guide.cjs"
+    },
+    "./views": {
+      "import": "./dist/views.js",
+      "require": "./dist/views.cjs"
     }
   },
   "license": "MIT",
