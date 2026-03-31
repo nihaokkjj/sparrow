@@ -83,3 +83,18 @@ test('interpolateColor() blends hex colors channel by channel', () => {
   expect(interpolateColor(1, '#000000', '#ffffff')).toBe('#ffffff')
   expect(interpolateColor(0.5, '#000000', '#ffffff')).toBe('#808080')
 })
+
+test('interpolateColor() supports rgb and rgba inputs', () => {
+  expect(interpolateColor(0.5, 'rgb(255, 0, 0)', 'rgb(0, 0, 255)')).toBe(
+    '#800080'
+  )
+  expect(
+    interpolateColor(0.5, 'rgba(255, 0, 0, 1)', 'rgba(0, 0, 255, 0.5)')
+  ).toBe('rgba(128, 0, 128, 0.75)')
+})
+
+test('interpolateColor() supports hex alpha colors', () => {
+  expect(interpolateColor(0.5, '#0000', '#ffff')).toBe(
+    'rgba(128, 128, 128, 0.5)'
+  )
+})

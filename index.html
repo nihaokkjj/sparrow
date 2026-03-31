@@ -1127,9 +1127,11 @@
             ])
 
           const pointGeometry = create({ type: 'point' })
+          const intervalGeometry = create({ type: 'interval' })
+          const lineGeometry = create({ type: 'line' })
           let unsupportedMessage = ''
           try {
-            create({ type: 'line' })
+            create({ type: 'area' })
           } catch (error) {
             unsupportedMessage = error.message
           }
@@ -1207,10 +1209,20 @@
                   : 'mismatched'
             },
             {
+              label: 'plot/create interval',
+              pass: typeof intervalGeometry === 'function',
+              value: typeof intervalGeometry
+            },
+            {
+              label: 'plot/create line',
+              pass: typeof lineGeometry === 'function',
+              value: typeof lineGeometry
+            },
+            {
               label: 'plot/create unsupported geometry',
               pass:
                 unsupportedMessage ===
-                'Geometry "line" is not implemented yet.',
+                'Geometry "area" is not implemented yet.',
               value: unsupportedMessage || 'no error'
             },
             {
