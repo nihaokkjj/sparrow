@@ -52,9 +52,10 @@
   },
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "node ./scripts/build.mjs",
     "test": "vitest run --coverage",
-    "test:browser": "vitest --config=vitest.browser.config.js",
+    "test:browser": "vitest --config=vitest.browser.config.js run",
+    "test:browser:example": "vitest --config=vitest.browser.config.js run vitest-browser-example/sparrow/RevenueCard.test.js",
     "prepare": "husky install",
     "ci": "run-s test build",
     "prepublishOnly": "run-s test build"

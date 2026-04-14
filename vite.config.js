@@ -1,15 +1,21 @@
 /// <reference types="vitest/config" />
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig } from 'vite'
 
-export default {
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+
+export const libraryEntries = {
+  sparrow: path.resolve(rootDir, './src/index.js'),
+  plot: path.resolve(rootDir, './src/plot/index.js'),
+  guide: path.resolve(rootDir, './src/guide/index.js'),
+  views: path.resolve(rootDir, './src/views/index.js')
+}
+
+export default defineConfig({
   build: {
     lib: {
-      entry: {
-        sparrow: path.resolve(__dirname, './src/index.js'),
-        plot: path.resolve(__dirname, './src/plot/index.js'),
-        guide: path.resolve(__dirname, './src/guide/index.js'),
-        views: path.resolve(__dirname, './src/views/index.js')
-      },
+      entry: libraryEntries,
       formats: ['es', 'cjs'],
       fileName: (format, entryName) =>
         `${entryName}.${format === 'es' ? 'js' : 'cjs'}`
@@ -17,8 +23,8 @@ export default {
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@renderer': path.resolve(__dirname, './src/renderer')
+      '@': path.resolve(rootDir, './src'),
+      '@renderer': path.resolve(rootDir, './src/renderer')
     },
     extensions: ['.js', '.ts', '.vue', '.json']
   },
@@ -26,4 +32,4 @@ export default {
     environment: 'jsdom',
     include: ['test/**/*.{test,spec}.?(c|m)[jt]s?(x)']
   }
-}
+})
