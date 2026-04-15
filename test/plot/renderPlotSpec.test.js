@@ -78,6 +78,39 @@ test('renderPlotSpec() renders interval bars as polar sectors', () => {
   expect(getAttributes(result.marks[0], ['d']).d).toContain('Z')
 })
 
+test('renderPlotSpec() renders pie marks as polar sectors with angle aliases', () => {
+  const result = renderPlotSpec({
+    width: 240,
+    height: 240,
+    plot: {
+      data: [
+        { category: 'A', value: 3 },
+        { category: 'B', value: 5 },
+        { category: 'C', value: 4 }
+      ],
+      type: 'pie',
+      encodings: {
+        value: 'value',
+        fill: 'category'
+      }
+    }
+  })
+
+  expect(result.plot.type).toBe('pie')
+  expect(result.coordinate.isPolar()).toBe(true)
+  expect(result.scaleDescriptors.angle.type).toBe('identity')
+  expect(result.scaleDescriptors.color.type).toBe('ordinal')
+  expect(result.plot.channels.angle.field).toBe('value')
+  expect(result.marks).toHaveLength(3)
+  expect(Array.from(result.marks, (node) => node.tagName)).toEqual([
+    'path',
+    'path',
+    'path'
+  ])
+  expect(result.node.querySelectorAll('path')).toHaveLength(3)
+  expect(getAttributes(result.marks[0], ['d']).d).toContain('Z')
+})
+
 test('renderPlotSpec() renders point scatter marks with scaled channels', () => {
   const result = renderPlotSpec({
     width: 260,
@@ -316,7 +349,7 @@ test('renderPlotSpec() rejects unsupported marks', () => {
       encodings: { x: 'x', y: 'y' }
     })
   ).toThrowError(
-    'renderPlotSpec only supports point, line, interval, area, rect, cell, and text marks. Received "link".'
+    'renderPlotSpec only supports point, line, interval, pie, area, rect, cell, and text marks. Received "link".'
   )
 })
 

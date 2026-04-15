@@ -53,6 +53,7 @@ function inferScaleType({ name, scale, values }, { type, domain, range }) {
   if (scale) return scale
   if (type) return type
   if (name === 'text') return 'identity'
+  if (isIdentityChannel(name)) return 'identity'
   if ((domain || range || []).length > 2) return asOrdinalType(name)
   if (domain !== undefined) {
     if (isOrdinal(domain)) return asOrdinalType(name)
@@ -138,6 +139,10 @@ function isPosition(name) {
 
 function isColor(name) {
   return name === 'fill' || name === 'stroke'
+}
+
+function isIdentityChannel(name) {
+  return name === 'angle' || name === 'innerRadius' || name === 'outerRadius'
 }
 
 function isOrdinal(values) {

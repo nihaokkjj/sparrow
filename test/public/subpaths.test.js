@@ -16,6 +16,8 @@ test('plot public barrel exposes plot composition APIs', () => {
   expect(plot.createOpenAICompatibleProvider).toBeTypeOf('function')
   expect(plot.createMockPlotProvider).toBeTypeOf('function')
   expect(plot.parsePlotSpecResponse).toBeTypeOf('function')
+  expect(plot.getPlotSpecPromptPreset).toBeTypeOf('function')
+  expect(plot.listPlotSpecPromptPresets).toBeTypeOf('function')
 })
 
 test('guide public barrel exposes axis and legend APIs', () => {

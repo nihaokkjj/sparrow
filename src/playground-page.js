@@ -1,14 +1,19 @@
 ﻿import {
+  DEFAULT_PLOT_SPEC_PROMPT_PRESET,
   buildProviderRequestConfig,
   createMockPlotProvider,
   createOpenAICompatibleProvider,
   createPlotSpecChunkBuffer,
   getDefaultPlaygroundProviderSettings,
+  getPlotSpecPromptPreset,
+  listPlotSpecPromptPresets,
   streamPlotSpec
 } from './plot/index.js'
 
 const form = document.getElementById('controls')
 const promptInput = document.getElementById('prompt')
+const promptPresetSelect = document.getElementById('promptPreset')
+const promptPresetHint = document.getElementById('prompt-preset-hint')
 const providerSelect = document.getElementById('provider')
 const providerConfig = document.getElementById('provider-config')
 const connectionModeSelect = document.getElementById('connectionMode')
@@ -112,6 +117,7 @@ function persistProviderSettings() {
   localStorage.setItem(
     providerSettingsKey,
     JSON.stringify({
+      promptPreset: promptPresetSelect.value,
       connectionMode: connectionModeSelect.value,
       targetBaseURL: targetBaseURLInput.value.trim(),
       model: modelInput.value.trim()
@@ -129,8 +135,29 @@ function syncConnectionModeUI() {
     : '同源代理模式仍请求 /api/openai；如果填写自己的中转站，请同时填写自己的 API Key，服务端会用这组用户信息转发。'
 }
 
+function populatePromptPresetOptions() {
+  const presets = listPlotSpecPromptPresets()
+  promptPresetSelect.replaceChildren(
+    ...presets.map((preset) => {
+      const option = document.createElement('option')
+      option.value = preset.id
+      option.textContent = preset.label
+      return option
+    })
+  )
+}
+
+function syncPromptPresetUI() {
+  const preset = getPlotSpecPromptPreset(promptPresetSelect.value)
+  promptPresetHint.textContent = preset.description
+}
+
 function initializeProviderSettings() {
   const stored = readStoredProviderSettings()
+  promptPresetSelect.value =
+    typeof stored.promptPreset === 'string'
+      ? getPlotSpecPromptPreset(stored.promptPreset).id
+      : DEFAULT_PLOT_SPEC_PROMPT_PRESET
   connectionModeSelect.value =
     stored.connectionMode === 'direct'
       ? 'direct'
@@ -140,9 +167,11 @@ function initializeProviderSettings() {
       ? stored.targetBaseURL
       : defaultProviderSettings.targetBaseURL
   modelInput.value = stored.model || defaultProviderSettings.model
+  syncPromptPresetUI()
   syncConnectionModeUI()
 }
 
+populatePromptPresetOptions()
 initializeProviderSettings()
 
 providerSelect.addEventListener('change', () => {
@@ -150,6 +179,11 @@ providerSelect.addEventListener('change', () => {
     'hidden',
     providerSelect.value !== 'openai-compatible'
   )
+})
+
+promptPresetSelect.addEventListener('change', () => {
+  syncPromptPresetUI()
+  persistProviderSettings()
 })
 
 connectionModeSelect.addEventListener('change', () => {
@@ -174,6 +208,7 @@ form.addEventListener('submit', async (event) => {
   controller = new AbortController()
 
   const buffer = createPlotSpecChunkBuffer()
+  const promptPreset = getPlotSpecPromptPreset(promptPresetSelect.value)
   let provider = createMockPlotProvider()
 
   if (providerSelect.value === 'openai-compatible') {
@@ -203,7 +238,8 @@ form.addEventListener('submit', async (event) => {
       baseURL: requestConfig.baseURL,
       headers: requestConfig.headers,
       apiKey,
-      model: modelInput.value.trim() || defaultProviderSettings.model
+      model: modelInput.value.trim() || defaultProviderSettings.model,
+      systemPrompt: promptPreset.systemPrompt
     })
     persistProviderSettings()
   }

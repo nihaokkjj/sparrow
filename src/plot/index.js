@@ -5,7 +5,15 @@ export { inferScales, applyScales } from './plot.js'
 export { renderPlotSpec } from './renderPlotSpec.js'
 export { renderAISpec } from './renderAISpec.js'
 export {
+  DEFAULT_PLOT_SPEC_PROMPT_PRESET,
   DEFAULT_PLOT_SPEC_SYSTEM_PROMPT,
+  MINIMAL_PLOT_SPEC_SYSTEM_PROMPT,
+  PLOT_SPEC_PROMPT_PRESETS,
+  SPARROW_SPEC_CREATOR_SYSTEM_PROMPT,
+  getPlotSpecPromptPreset,
+  listPlotSpecPromptPresets
+} from './prompts.js'
+export {
   createPlotSpecMessages,
   parsePlotSpecResponse,
   createPlotSpecChunkBuffer,

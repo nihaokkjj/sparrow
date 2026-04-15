@@ -1,19 +1,9 @@
 ﻿import { renderAISpec } from './renderAISpec.js'
 
 import { buildOpenAICompatibleRequestURL } from './providerConfig.js'
+import { DEFAULT_PLOT_SPEC_SYSTEM_PROMPT } from './prompts.js'
 
-export const DEFAULT_PLOT_SPEC_SYSTEM_PROMPT = [
-  'You generate SparrowPlotSpec JSON only for the Sparrow runtime.',
-  'Return exactly one SparrowPlotSpec JSON object with keys such as width, height, padding, coordinate, plot, plots, view, scales, and guides.',
-  'Use plot for one layer, or plots for multiple layered marks in the same view.',
-  'Use view for multi-panel layouts. view.type may be row, col, layer, or facet, and view.children may contain nested views or plot leaves.',
-  'Prefer plots over view.type layer when marks should share the same scales and guides.',
-  'Only use plot.type or plots[].type values point, line, interval, area, rect, cell, or text.',
-  'plot.data must be an array of plain JSON objects.',
-  'plot.encodings must map channel names like x, y, fill, stroke, r to field names or constants.',
-  'Do not return Markdown unless the SparrowPlotSpec JSON is inside a single fenced json block.',
-  'Do not include explanations before or after the SparrowPlotSpec JSON.'
-].join(' ')
+export { DEFAULT_PLOT_SPEC_SYSTEM_PROMPT } from './prompts.js'
 
 export function createPlotSpecMessages(
   prompt,

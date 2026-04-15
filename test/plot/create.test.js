@@ -4,6 +4,7 @@ import { area } from '../../src/geometry/area.js'
 import { cell } from '../../src/geometry/cell.js'
 import { interval } from '../../src/geometry/interval.js'
 import { line } from '../../src/geometry/line.js'
+import { pie } from '../../src/geometry/pie.js'
 import { point } from '../../src/geometry/point.js'
 import { rect } from '../../src/geometry/rect.js'
 import { text } from '../../src/geometry/text.js'
@@ -14,6 +15,10 @@ test('create returns point geometry for point marks', () => {
 
 test('create returns interval geometry for interval marks', () => {
   expect(create({ type: 'interval' })).toBe(interval)
+})
+
+test('create returns pie geometry for pie marks', () => {
+  expect(create({ type: 'pie' })).toBe(pie)
 })
 
 test('create returns line geometry for line marks', () => {

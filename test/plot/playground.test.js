@@ -28,9 +28,11 @@ test('createPlotSpecMessages() instructs the model to output SparrowPlotSpec JSO
       content: 'make a line chart'
     }
   ])
-  expect(messages[0].content).toContain('SparrowPlotSpec JSON')
-  expect(messages[0].content).toContain('plots for multiple layered marks')
-  expect(messages[0].content).toContain('view for multi-panel layouts')
+  expect(messages[0].content).toContain('`SparrowPlotSpec` JSON object')
+  expect(messages[0].content).toContain('Only use these mark types')
+  expect(messages[0].content).toContain('Use `plots` when multiple marks')
+  expect(messages[0].content).toContain('Only use these `view.type` values')
+  expect(messages[0].content).toContain('facet')
 })
 
 test('parsePlotSpecResponse() extracts JSON from fenced model output', () => {

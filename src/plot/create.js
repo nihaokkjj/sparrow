@@ -2,6 +2,7 @@ import { area } from '../geometry/area.js'
 import { cell } from '../geometry/cell.js'
 import { interval } from '../geometry/interval.js'
 import { line } from '../geometry/line.js'
+import { pie } from '../geometry/pie.js'
 import { point } from '../geometry/point.js'
 import { rect } from '../geometry/rect.js'
 import { text } from '../geometry/text.js'
@@ -35,6 +36,7 @@ registerBuiltIn('cell', () => cell)
 registerBuiltIn('point', () => point)
 registerBuiltIn('interval', () => interval)
 registerBuiltIn('line', () => line)
+registerBuiltIn('pie', () => pie)
 registerBuiltIn('rect', () => rect)
 registerBuiltIn('text', () => text)
 

@@ -14,6 +14,7 @@ const MARK_TYPES = new Set([
   'point',
   'line',
   'interval',
+  'pie',
   'area',
   'rect',
   'cell',
@@ -205,7 +206,7 @@ function normalizeViewChild(node) {
   }
 
   throw new Error(
-    'View children must be nested views or plot specs with plot, plots, point, line, interval, area, rect, cell, or text.'
+    'View children must be nested views or plot specs with plot, plots, point, line, interval, pie, area, rect, cell, or text.'
   )
 }
 

@@ -12,6 +12,8 @@ export function inferEncodings(type, data, encodings) {
       return maybeFill(maybeZeroX(maybeZeroY1(typedEncodings)))
     case 'line':
       return maybeStroke(maybeGroup(typedEncodings))
+    case 'pie':
+      return maybeFill(typedEncodings)
     case 'area':
       return maybeFill(maybeIdentityX(maybeZeroY1(maybeGroup(typedEncodings))))
     case 'link':

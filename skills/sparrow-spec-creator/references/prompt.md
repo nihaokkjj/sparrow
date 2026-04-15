@@ -85,6 +85,7 @@ Only use these mark types:
 - `point`
 - `line`
 - `interval`
+- `pie`
 - `area`
 - `rect`
 - `cell`
@@ -110,7 +111,8 @@ Only use these `view.type` values:
 ### Encodings
 
 - `encodings` should map channels to field names or constants.
-- Prefer common channels such as `x`, `y`, `fill`, `stroke`, `r`, and `text`.
+- Prefer common channels such as `x`, `y`, `angle`, `fill`, `stroke`, `r`, and `text`.
+- For `pie`, use `encodings.angle` for slice values and `fill` for categories.
 - Keep channel names simple and consistent with the chosen mark.
 
 ## Layout rules

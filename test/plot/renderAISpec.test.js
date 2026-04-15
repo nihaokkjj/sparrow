@@ -157,3 +157,31 @@ test('renderAISpec() accepts area marks in leaf plot specs', () => {
   expect(result.marks).toHaveLength(1)
   expect(result.node.querySelectorAll('path')).toHaveLength(1)
 })
+
+test('renderAISpec() accepts pie marks in leaf plot specs', () => {
+  const result = renderAISpec({
+    width: 320,
+    height: 180,
+    view: {
+      type: 'layer',
+      children: [
+        {
+          plot: {
+            type: 'pie',
+            data: [
+              { category: 'A', value: 12 },
+              { category: 'B', value: 18 },
+              { category: 'C', value: 10 }
+            ],
+            encodings: { angle: 'value', fill: 'category' }
+          }
+        }
+      ]
+    }
+  })
+
+  expect(result.views).toHaveLength(1)
+  expect(result.plot.type).toBe('pie')
+  expect(result.marks).toHaveLength(3)
+  expect(result.node.querySelectorAll('path')).toHaveLength(3)
+})

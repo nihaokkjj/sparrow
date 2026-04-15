@@ -278,7 +278,8 @@ optionally wrapped in one fenced `json` block. Use `plot` for one layer or
 `plots` for multiple layered marks in the same view. Use `view` for multi-panel
 layouts backed by Sparrow views (`row`, `col`, `layer`, `facet`). Prefer
 `plots` over `view.type = "layer"` when marks should share the same scales and
-guides.
+guides. Supported marks include `point`, `line`, `interval`, `pie`, `area`,
+`rect`, `cell`, and `text`. For `pie`, use `encodings.angle` for slice values.
 
 Minimal `view` example:
 
@@ -364,6 +365,14 @@ The user-facing JSON contract lives in
 `skills/sparrow-spec-creator/references/prompt.md`. The developer workflow
 lives in `skills/sparrow-core-contributor/references/architecture.md` and
 `skills/sparrow-core-contributor/references/testing.md`.
+
+The browser playground now includes a `Skill / Mode` selector and defaults to
+`sparrow-spec-creator`, so the same repo-local skill prompt can drive real
+model calls without copying prompt text by hand.
+
+If you want to reuse the built-in skill contract in your own app code, import a
+prompt preset from `@ksj_sparrow/sparrow/plot` and pass its `systemPrompt` to
+`createOpenAICompatibleProvider(...)`.
 
 Example:
 

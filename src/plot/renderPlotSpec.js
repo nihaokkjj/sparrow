@@ -9,6 +9,7 @@ const SUPPORTED_TYPES = new Set([
   'point',
   'line',
   'interval',
+  'pie',
   'area',
   'rect',
   'cell',
@@ -125,16 +126,19 @@ function normalizeSpec(input, options) {
     throw new Error('renderPlotSpec requires a positive plot area.')
   }
 
+  const plots = normalizePlots(input)
+  const hasPiePlot = plots.some((plot) => plot.type === 'pie')
+
   return {
     width: Math.max(width, frame.x + frame.width),
     height: Math.max(height, frame.y + frame.height),
     clear: options.clear ?? true,
     container: options.container ?? input.container,
     plotArea,
-    coordinate: normalizeCoordinate(input.coordinate),
+    coordinate: normalizeCoordinate(input.coordinate, { hasPiePlot }),
     guides: normalizeGuideOptions(input.guides),
     scales: normalizeOptions(input.scales),
-    plots: normalizePlots(input)
+    plots
   }
 }
 
@@ -163,9 +167,12 @@ function normalizePlot(plot, defaultData) {
     styles = {}
   } = plot || {}
 
+  const normalizedEncodings =
+    type === 'pie' ? normalizePieEncodings(encodings) : encodings
+
   if (!SUPPORTED_TYPES.has(type)) {
     throw new Error(
-      `renderPlotSpec only supports point, line, interval, area, rect, cell, and text marks. Received "${type}".`
+      `renderPlotSpec only supports point, line, interval, pie, area, rect, cell, and text marks. Received "${type}".`
     )
   }
 
@@ -176,7 +183,7 @@ function normalizePlot(plot, defaultData) {
   return {
     data,
     type,
-    encodings,
+    encodings: normalizedEncodings,
     statistics,
     transforms,
     styles
@@ -219,7 +226,15 @@ function normalizeFrame(frame, width, height) {
   }
 }
 
-function normalizeCoordinate(coordinate = {}) {
+function normalizeCoordinate(coordinate, { hasPiePlot = false } = {}) {
+  if (coordinate === undefined && hasPiePlot) {
+    coordinate = { type: 'polar' }
+  }
+
+  if (coordinate === undefined) {
+    coordinate = {}
+  }
+
   if (Array.isArray(coordinate)) {
     return {
       transforms: coordinate.map((transform) => normalizeTransform(transform))
@@ -259,6 +274,38 @@ function normalizeCoordinate(coordinate = {}) {
       }
     default:
       throw new Error(`Unsupported coordinate type: ${type}`)
+  }
+}
+
+function normalizePieEncodings(encodings = {}) {
+  const {
+    angle,
+    value,
+    theta,
+    radius,
+    r,
+    innerRadius,
+    outerRadius,
+    ...rest
+  } = encodings
+
+  return {
+    ...rest,
+    ...(angle !== undefined
+      ? { angle }
+      : value !== undefined
+        ? { angle: value }
+        : theta !== undefined
+          ? { angle: theta }
+          : {}),
+    ...(innerRadius !== undefined ? { innerRadius } : {}),
+    ...(outerRadius !== undefined
+      ? { outerRadius }
+      : radius !== undefined
+        ? { outerRadius: radius }
+        : r !== undefined
+          ? { outerRadius: r }
+          : {})
   }
 }
 
