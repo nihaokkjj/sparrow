@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sparrow AI Playground</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --bg-soft: rgba(10, 20, 36, 0.84);
+        --line: rgba(148, 163, 184, 0.18);
+        --text: #e5eefc;
+        --muted: #96a5bf;
+        --accent: #7c3aed;
+        --success: #22c55e;
+        --danger: #fb7185;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          'Segoe UI', sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 32%),
+          radial-gradient(circle at top right, rgba(124, 58, 237, 0.22), transparent 28%),
+          linear-gradient(180deg, #08111f 0%, #050b15 100%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .shell {
+        width: min(1400px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        gap: 28px;
+        align-items: end;
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 12px;
+      }
+
+      .eyebrow::before {
+        content: '';
+        width: 36px;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(124, 58, 237, 0.9), transparent);
+      }
+
+      h1 {
+        margin: 14px 0 12px;
+        font-size: clamp(40px, 6vw, 72px);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 48ch;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .hero-note {
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(124, 58, 237, 0.08), rgba(5, 11, 21, 0.2));
+        backdrop-filter: blur(18px);
+      }
+
+      .hero-note strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+        gap: 20px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        background: var(--bg-soft);
+        backdrop-filter: blur(20px);
+      }
+
+      .controls {
+        padding: 20px;
+        position: sticky;
+        top: 20px;
+        align-self: start;
+      }
+
+      .section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .field label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(7, 17, 31, 0.84);
+        color: var(--text);
+        padding: 12px 14px;
+        outline: none;
+        transition:
+          border-color 160ms ease,
+          background 160ms ease,
+          transform 160ms ease;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: rgba(124, 58, 237, 0.7);
+        background: rgba(11, 19, 36, 0.95);
+      }
+
+      textarea {
+        min-height: 172px;
+        resize: vertical;
+        line-height: 1.6;
+      }
+
+      .inline {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      button {
+        border: 1px solid transparent;
+        cursor: pointer;
+        padding: 12px 18px;
+        color: white;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        transition:
+          transform 160ms ease,
+          opacity 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.28);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: transparent;
+        border-color: rgba(148, 163, 184, 0.24);
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .stack {
+        display: grid;
+        gap: 20px;
+      }
+
+      .preview-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 18px 20px 0;
+      }
+
+      .status {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .status.live {
+        color: #c4b5fd;
+      }
+
+      .status.ok {
+        color: var(--success);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .preview {
+        margin: 0 20px 20px;
+        min-height: 420px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+          rgba(5, 11, 21, 0.88);
+        overflow: hidden;
+      }
+
+      .preview svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .preview-empty {
+        display: grid;
+        place-items: center;
+        min-height: 420px;
+        padding: 32px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .log,
+      .json {
+        margin: 0;
+        padding: 18px 20px 20px;
+        min-height: 260px;
+        max-height: 320px;
+        overflow: auto;
+        color: #dbeafe;
+        background: rgba(3, 8, 15, 0.72);
+        border-top: 1px solid var(--line);
+        white-space: pre-wrap;
+        line-height: 1.55;
+        font-size: 13px;
+      }
+
+      .hint {
+        margin-top: 12px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 1100px) {
+        .hero,
+        .workspace,
+        .meta {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          position: static;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100vw - 24px, 1400px);
+          padding-top: 20px;
+        }
+
+        .inline {
+          grid-template-columns: 1fr;
+        }
+
+        .button-row {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Sparrow · AI Playground</div>
+          <h1>Prompt → Provider → Chunk Buffer → JSON Spec → SVG</h1>
+          <p>
+            A minimal lab for turning natural language into a Sparrow plot spec, streaming
+            model chunks, parsing JSON progressively, and rendering the result with
+            <code>renderPlotSpec()</code>.
+          </p>
+        </div>
+        <aside class="hero-note panel">
+          <strong>Minimal by design</strong>
+          The mock provider works out of the box. Switch to an OpenAI-compatible endpoint when
+          you want real model output.
+        </aside>
+      </section>
+
+      <section class="workspace">
+        <form class="controls panel" id="controls">
+          <p class="section-title">Input</p>
+          <div class="field">
+            <label for="prompt">Prompt</label>
+            <textarea id="prompt" name="prompt">做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea>
+          </div>
+
+          <div class="field">
+            <label for="provider">Provider</label>
+            <select id="provider" name="provider">
+              <option value="mock">Mock provider</option>
+              <option value="openai-compatible">OpenAI-compatible</option>
+            </select>
+          </div>
+
+          <div id="provider-config" class="hidden">
+            <div class="field">
+              <label for="baseURL">Base URL</label>
+              <input
+                id="baseURL"
+                name="baseURL"
+                type="text"
+                value="https://api.openai.com/v1"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="inline">
+              <div class="field">
+                <label for="model">Model</label>
+                <input id="model" name="model" type="text" value="gpt-4o-mini" />
+              </div>
+              <div class="field">
+                <label for="apiKey">API Key</label>
+                <input id="apiKey" name="apiKey" type="password" autocomplete="off" />
+              </div>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button type="submit" id="run">Generate</button>
+            <button type="button" class="secondary" id="stop" disabled>Stop</button>
+          </div>
+
+          <div class="hint">
+            The mock mode returns chunked Markdown with a fenced JSON block, so you can watch
+            the parser recover the spec before rendering.
+          </div>
+        </form>
+
+        <div class="stack">
+          <section class="panel">
+            <div class="preview-head">
+              <div>
+                <p class="section-title" style="margin-bottom: 8px">Preview</p>
+                <div id="status" class="status">Waiting for a prompt.</div>
+              </div>
+              <div id="summary" class="status">No spec yet</div>
+            </div>
+            <div class="preview" id="preview">
+              <div class="preview-empty">Your rendered SVG will appear here.</div>
+            </div>
+          </section>
+
+          <section class="meta">
+            <div class="panel">
+              <div class="preview-head">
+                <div>
+                  <p class="section-title" style="margin-bottom: 8px">Chunk Buffer</p>
+                  <div class="status">Live provider text stream</div>
+                </div>
+              </div>
+              <pre id="stream-log" class="log"></pre>
+            </div>
+
+            <div class="panel">
+              <div class="preview-head">
+                <div>
+                  <p class="section-title" style="margin-bottom: 8px">Parsed JSON Spec</p>
+                  <div class="status">Last valid object extracted from the buffer</div>
+                </div>
+              </div>
+              <pre id="spec-json" class="json"></pre>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <p class="footer">
+        Tip: run <code>pnpm dev</code> in this folder and open
+        <code>/playground.html</code>.
+      </p>
+    </div>
+
+    <script type="module">
+      import {
+        createMockPlotProvider,
+        createOpenAICompatibleProvider,
+        createPlotSpecChunkBuffer,
+        streamPlotSpec
+      } from '/src/plot/index.js'
+
+      const form = document.getElementById('controls')
+      const promptInput = document.getElementById('prompt')
+      const providerSelect = document.getElementById('provider')
+      const providerConfig = document.getElementById('provider-config')
+      const baseURLInput = document.getElementById('baseURL')
+      const modelInput = document.getElementById('model')
+      const apiKeyInput = document.getElementById('apiKey')
+      const runButton = document.getElementById('run')
+      const stopButton = document.getElementById('stop')
+      const statusNode = document.getElementById('status')
+      const summaryNode = document.getElementById('summary')
+      const streamLogNode = document.getElementById('stream-log')
+      const specJsonNode = document.getElementById('spec-json')
+      const previewNode = document.getElementById('preview')
+
+      let controller = null
+
+      providerSelect.addEventListener('change', () => {
+        providerConfig.classList.toggle(
+          'hidden',
+          providerSelect.value !== 'openai-compatible'
+        )
+      })
+
+      stopButton.addEventListener('click', () => {
+        controller?.abort()
+      })
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+
+        const prompt = promptInput.value.trim()
+        if (!prompt) return
+
+        controller?.abort()
+        controller = new AbortController()
+
+        const buffer = createPlotSpecChunkBuffer()
+        const provider =
+          providerSelect.value === 'openai-compatible'
+            ? createOpenAICompatibleProvider({
+                baseURL: baseURLInput.value.trim(),
+                apiKey: apiKeyInput.value.trim(),
+                model: modelInput.value.trim()
+              })
+            : createMockPlotProvider()
+
+        runButton.disabled = true
+        stopButton.disabled = false
+        statusNode.textContent = 'Streaming model output…'
+        statusNode.className = 'status live'
+        summaryNode.textContent = 'Waiting for JSON'
+        streamLogNode.textContent = ''
+        specJsonNode.textContent = ''
+        previewNode.innerHTML = '<div class="preview-empty">Streaming and parsing…</div>'
+
+        try {
+          const result = await streamPlotSpec({
+            prompt,
+            provider,
+            buffer,
+            signal: controller.signal,
+            renderOptions: {
+              container: previewNode
+            },
+            onChunk(chunk, text) {
+              streamLogNode.textContent = text
+            },
+            onSpec(spec) {
+              specJsonNode.textContent = JSON.stringify(spec, null, 2)
+              const type = spec?.plot?.type || 'unknown'
+              const count = Array.isArray(spec?.plot?.data) ? spec.plot.data.length : 0
+              summaryNode.textContent = `${type} · ${count} rows`
+            },
+            onRender(result, spec) {
+              statusNode.textContent = `Rendered ${spec.plot.type} chart from the latest valid JSON object.`
+              statusNode.className = 'status ok'
+            }
+          })
+
+          statusNode.textContent = `Done. Parsed and rendered ${result.spec.plot.type}.`
+          statusNode.className = 'status ok'
+        } catch (error) {
+          if (error?.name === 'AbortError') {
+            statusNode.textContent = 'Stream aborted.'
+            statusNode.className = 'status'
+          } else {
+            statusNode.textContent = error?.message || 'Generation failed.'
+            statusNode.className = 'status error'
+          }
+        } finally {
+          runButton.disabled = false
+          stopButton.disabled = true
+        }
+      })
+    </script>
+  </body>
+</html>

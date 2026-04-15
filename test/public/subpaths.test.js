@@ -10,6 +10,11 @@ test('plot public barrel exposes plot composition APIs', () => {
   expect(plot.inferGuides).toBeTypeOf('function')
   expect(plot.inferScales).toBeTypeOf('function')
   expect(plot.applyScales).toBeTypeOf('function')
+  expect(plot.renderPlotSpec).toBeTypeOf('function')
+  expect(plot.streamPlotSpec).toBeTypeOf('function')
+  expect(plot.createOpenAICompatibleProvider).toBeTypeOf('function')
+  expect(plot.createMockPlotProvider).toBeTypeOf('function')
+  expect(plot.parsePlotSpecResponse).toBeTypeOf('function')
 })
 
 test('guide public barrel exposes axis and legend APIs', () => {

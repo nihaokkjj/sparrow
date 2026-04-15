@@ -258,6 +258,36 @@ blocks from the root entry:
 - Statistic: `createBinX`, `createNormalizeY`, `createStackY`,
   `createSymmetryY`
 
+## Minimal AI Playground
+
+The `plot` subpath now includes a minimal prompt-to-SVG chain:
+
+- `createOpenAICompatibleProvider(...)`
+- `createMockPlotProvider(...)`
+- `createPlotSpecChunkBuffer()`
+- `parsePlotSpecResponse(text)`
+- `streamPlotSpec(...)`
+- `renderPlotSpec(spec, options)`
+
+Example:
+
+```js
+import {
+  createMockPlotProvider,
+  streamPlotSpec
+} from '@ksj_sparrow/sparrow/plot'
+
+const container = document.getElementById('app')
+
+await streamPlotSpec({
+  prompt: 'Create a quarterly trend line chart.',
+  provider: createMockPlotProvider(),
+  renderOptions: { container }
+})
+```
+
+For a browser demo, run `pnpm dev` and open `/playground.html`.
+
 Example:
 
 ```js
