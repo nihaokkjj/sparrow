@@ -5,7 +5,15 @@ import { initialize } from './encoding.js'
 import { inferGuides } from './guide.js'
 import { inferScales, applyScales } from './plot.js'
 
-const SUPPORTED_TYPES = new Set(['point', 'line', 'interval'])
+const SUPPORTED_TYPES = new Set([
+  'point',
+  'line',
+  'interval',
+  'area',
+  'rect',
+  'cell',
+  'text'
+])
 
 const DEFAULT_SIZE = {
   width: 640,
@@ -100,7 +108,10 @@ function normalizeSpec(input, options) {
   const width =
     options.width ?? input.width ?? options.frame?.width ?? DEFAULT_SIZE.width
   const height =
-    options.height ?? input.height ?? options.frame?.height ?? DEFAULT_SIZE.height
+    options.height ??
+    input.height ??
+    options.frame?.height ??
+    DEFAULT_SIZE.height
   const frame = normalizeFrame(options.frame ?? input.frame, width, height)
   const padding = normalizePadding(input.padding)
   const plotArea = {
@@ -154,7 +165,7 @@ function normalizePlot(plot, defaultData) {
 
   if (!SUPPORTED_TYPES.has(type)) {
     throw new Error(
-      `renderPlotSpec only supports point, line, and interval marks. Received "${type}".`
+      `renderPlotSpec only supports point, line, interval, area, rect, cell, and text marks. Received "${type}".`
     )
   }
 
@@ -294,7 +305,10 @@ function normalizeScaleOptions(scales, plots, plotSpecs) {
     const plotSpec = plotSpecs[index]
     if (plotSpec.type === 'interval' && !plot.channels.x1 && !options.x?.type) {
       options.x = { ...options.x, type: 'band' }
-      break
+    }
+    if (plotSpec.type === 'cell') {
+      if (!options.x?.type) options.x = { ...options.x, type: 'band' }
+      if (!options.y?.type) options.y = { ...options.y, type: 'band' }
     }
   }
 

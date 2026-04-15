@@ -123,3 +123,37 @@ test('renderAISpec() facets inherited data into child plot specs', () => {
     height: (400 - 10) / 2
   })
 })
+
+test('renderAISpec() accepts area marks in leaf plot specs', () => {
+  const result = renderAISpec({
+    width: 320,
+    height: 180,
+    view: {
+      type: 'layer',
+      children: [
+        {
+          plot: {
+            type: 'area',
+            data: [
+              { quarter: 'Q1', value: 12 },
+              { quarter: 'Q2', value: 18 },
+              { quarter: 'Q3', value: 15 }
+            ],
+            encodings: { x: 'quarter', y: 'value' },
+            styles: { fill: '#93c5fd' }
+          },
+          scales: {
+            x: { type: 'dot' },
+            y: { zero: true }
+          },
+          guides: false
+        }
+      ]
+    }
+  })
+
+  expect(result.views).toHaveLength(1)
+  expect(result.plot.type).toBe('area')
+  expect(result.marks).toHaveLength(1)
+  expect(result.node.querySelectorAll('path')).toHaveLength(1)
+})

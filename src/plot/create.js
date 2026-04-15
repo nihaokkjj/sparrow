@@ -1,6 +1,10 @@
+import { area } from '../geometry/area.js'
+import { cell } from '../geometry/cell.js'
 import { interval } from '../geometry/interval.js'
 import { line } from '../geometry/line.js'
 import { point } from '../geometry/point.js'
+import { rect } from '../geometry/rect.js'
+import { text } from '../geometry/text.js'
 import {
   createBand,
   createIdentity,
@@ -24,18 +28,15 @@ import {
 
 const registry = new Map()
 
-const unsupportedGeometryTypes = [
-  'area',
-  'text',
-  'link',
-  'cell',
-  'rect',
-  'path'
-]
+const unsupportedGeometryTypes = ['link', 'path']
 
+registerBuiltIn('area', () => area)
+registerBuiltIn('cell', () => cell)
 registerBuiltIn('point', () => point)
 registerBuiltIn('interval', () => interval)
 registerBuiltIn('line', () => line)
+registerBuiltIn('rect', () => rect)
+registerBuiltIn('text', () => text)
 
 for (const type of unsupportedGeometryTypes) {
   registerBuiltIn(type, () => {

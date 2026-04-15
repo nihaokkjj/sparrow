@@ -6,15 +6,15 @@
     <title>Sparrow AI Playground</title>
     <style>
       :root {
-        color-scheme: dark;
-        --bg: #07111f;
-        --bg-soft: rgba(10, 20, 36, 0.84);
-        --line: rgba(148, 163, 184, 0.18);
-        --text: #e5eefc;
-        --muted: #96a5bf;
-        --accent: #7c3aed;
-        --success: #22c55e;
-        --danger: #fb7185;
+        color-scheme: light;
+        --bg: #f3f7fc;
+        --bg-soft: rgba(255, 255, 255, 0.84);
+        --line: rgba(148, 163, 184, 0.24);
+        --text: #132238;
+        --muted: #64748b;
+        --accent: #5b6df6;
+        --success: #15803d;
+        --danger: #dc2626;
       }
 
       * {
@@ -34,15 +34,15 @@
         background:
           radial-gradient(
             circle at top left,
-            rgba(59, 130, 246, 0.2),
+            rgba(96, 165, 250, 0.18),
             transparent 32%
           ),
           radial-gradient(
             circle at top right,
-            rgba(124, 58, 237, 0.22),
+            rgba(139, 92, 246, 0.14),
             transparent 28%
           ),
-          linear-gradient(180deg, #08111f 0%, #050b15 100%);
+          linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
         color: var(--text);
         min-height: 100vh;
       }
@@ -77,7 +77,7 @@
         height: 1px;
         background: linear-gradient(
           90deg,
-          rgba(124, 58, 237, 0.9),
+          rgba(91, 109, 246, 0.9),
           transparent
         );
       }
@@ -101,10 +101,11 @@
         border: 1px solid var(--line);
         background: linear-gradient(
           180deg,
-          rgba(124, 58, 237, 0.08),
-          rgba(5, 11, 21, 0.2)
+          rgba(91, 109, 246, 0.08),
+          rgba(255, 255, 255, 0.86)
         );
         backdrop-filter: blur(18px);
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.06);
       }
 
       .hero-note strong {
@@ -123,6 +124,7 @@
         border: 1px solid var(--line);
         background: var(--bg-soft);
         backdrop-filter: blur(20px);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.05);
       }
 
       .controls {
@@ -162,22 +164,23 @@
       select,
       textarea {
         width: 100%;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(7, 17, 31, 0.84);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(255, 255, 255, 0.9);
         color: var(--text);
         padding: 12px 14px;
         outline: none;
         transition:
           border-color 160ms ease,
           background 160ms ease,
-          transform 160ms ease;
+          box-shadow 160ms ease;
       }
 
       input:focus,
       select:focus,
       textarea:focus {
-        border-color: rgba(124, 58, 237, 0.7);
-        background: rgba(11, 19, 36, 0.95);
+        border-color: rgba(91, 109, 246, 0.6);
+        background: rgba(255, 255, 255, 1);
+        box-shadow: 0 0 0 4px rgba(91, 109, 246, 0.12);
       }
 
       textarea {
@@ -203,7 +206,7 @@
         cursor: pointer;
         padding: 12px 18px;
         color: white;
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
         transition:
           transform 160ms ease,
           opacity 160ms ease,
@@ -212,13 +215,13 @@
 
       button:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.28);
+        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.2);
       }
 
       button.secondary {
         color: var(--text);
-        background: transparent;
-        border-color: rgba(148, 163, 184, 0.24);
+        background: rgba(255, 255, 255, 0.72);
+        border-color: rgba(148, 163, 184, 0.28);
       }
 
       button:disabled {
@@ -245,7 +248,7 @@
       }
 
       .status.live {
-        color: #c4b5fd;
+        color: #4f46e5;
       }
 
       .status.ok {
@@ -261,8 +264,8 @@
         min-height: 420px;
         border: 1px solid var(--line);
         background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
-          rgba(5, 11, 21, 0.88);
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), transparent),
+          rgba(248, 250, 252, 0.95);
         overflow: hidden;
       }
 
@@ -294,8 +297,8 @@
         min-height: 260px;
         max-height: 320px;
         overflow: auto;
-        color: #dbeafe;
-        background: rgba(3, 8, 15, 0.72);
+        color: #334155;
+        background: rgba(248, 250, 252, 0.92);
         border-top: 1px solid var(--line);
         white-space: pre-wrap;
         line-height: 1.55;

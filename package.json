@@ -53,6 +53,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "node ./scripts/build.mjs",
+    "build:site": "vite build --config vite.site.config.js",
+    "preview:site": "vite preview --config vite.site.config.js",
     "test": "vitest run --coverage",
     "test:browser": "vitest --config=vitest.browser.config.js run",
     "test:browser:example": "vitest --config=vitest.browser.config.js run vitest-browser-example/sparrow/RevenueCard.test.js",

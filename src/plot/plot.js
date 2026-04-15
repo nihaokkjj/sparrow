@@ -52,6 +52,7 @@ function mergeChannels(name, channels) {
 function inferScaleType({ name, scale, values }, { type, domain, range }) {
   if (scale) return scale
   if (type) return type
+  if (name === 'text') return 'identity'
   if ((domain || range || []).length > 2) return asOrdinalType(name)
   if (domain !== undefined) {
     if (isOrdinal(domain)) return asOrdinalType(name)

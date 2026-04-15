@@ -8,7 +8,7 @@ export const DEFAULT_PLOT_SPEC_SYSTEM_PROMPT = [
   'Use plot for one layer, or plots for multiple layered marks in the same view.',
   'Use view for multi-panel layouts. view.type may be row, col, layer, or facet, and view.children may contain nested views or plot leaves.',
   'Prefer plots over view.type layer when marks should share the same scales and guides.',
-  'Only use plot.type or plots[].type values point, line, or interval.',
+  'Only use plot.type or plots[].type values point, line, interval, area, rect, cell, or text.',
   'plot.data must be an array of plain JSON objects.',
   'plot.encodings must map channel names like x, y, fill, stroke, r to field names or constants.',
   'Do not return Markdown unless the SparrowPlotSpec JSON is inside a single fenced json block.',

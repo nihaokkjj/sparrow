@@ -10,7 +10,15 @@ const DEFAULT_SIZE = {
 }
 
 const VIEW_TYPES = new Set(['row', 'col', 'layer', 'facet'])
-const MARK_TYPES = new Set(['point', 'line', 'interval'])
+const MARK_TYPES = new Set([
+  'point',
+  'line',
+  'interval',
+  'area',
+  'rect',
+  'cell',
+  'text'
+])
 
 const VIEW_COMPUTES = {
   row: computeFlexViews,
@@ -155,9 +163,9 @@ function normalizeAISpec(input, options) {
 function hasViewRoot(input) {
   return Boolean(
     input &&
-      typeof input === 'object' &&
-      !Array.isArray(input) &&
-      isViewNode(input.view ?? input)
+    typeof input === 'object' &&
+    !Array.isArray(input) &&
+    isViewNode(input.view ?? input)
   )
 }
 
@@ -197,7 +205,7 @@ function normalizeViewChild(node) {
   }
 
   throw new Error(
-    'View children must be nested views or plot specs with plot, plots, point, line, or interval.'
+    'View children must be nested views or plot specs with plot, plots, point, line, interval, area, rect, cell, or text.'
   )
 }
 
@@ -272,12 +280,12 @@ function isViewNode(node) {
 function isPlotLikeSpec(node) {
   return Boolean(
     node &&
-      typeof node === 'object' &&
-      !Array.isArray(node) &&
-      (Array.isArray(node.plots) ||
-        Array.isArray(node.plot) ||
-        node.plot ||
-        isMarkType(node.type))
+    typeof node === 'object' &&
+    !Array.isArray(node) &&
+    (Array.isArray(node.plots) ||
+      Array.isArray(node.plot) ||
+      node.plot ||
+      isMarkType(node.type))
   )
 }
 
