@@ -350,6 +350,21 @@ Then run `pnpm dev`. In the Playground you can either:
 The dev proxy keeps the streaming response shape expected by
 `createOpenAICompatibleProvider(...)`.
 
+## Skills
+
+Sparrow now ships with two local skills under `skills/` to keep AI usage and
+developer changes aligned:
+
+- `skills/sparrow-spec-creator`: user-facing skill for generating a single
+  valid `SparrowPlotSpec` JSON object from natural-language chart requests
+- `skills/sparrow-core-contributor`: developer-facing skill for changing the
+  runtime, prompt contract, guides, views, exports, and matching tests
+
+The user-facing JSON contract lives in
+`skills/sparrow-spec-creator/references/prompt.md`. The developer workflow
+lives in `skills/sparrow-core-contributor/references/architecture.md` and
+`skills/sparrow-core-contributor/references/testing.md`.
+
 Example:
 
 ```js

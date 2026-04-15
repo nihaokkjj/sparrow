@@ -43,7 +43,14 @@ export default {
       process.env.OPENAI_PROXY_TARGET ||
       DEFAULT_OPENAI_BASE_URL
 
-    if (targetOverride && !isAllowedRuntimeTarget(targetOverride)) {
+    if (targetOverride && !request.headers.has('authorization')) {
+      return jsonError(
+        'Authorization is required when using a runtime proxy target.',
+        401
+      )
+    }
+
+    if (targetOverride && !isAllowedRuntimeTarget(targetOverride, request)) {
       return jsonError('Proxy target is not in OPENAI_PROXY_ALLOWLIST.', 403)
     }
 
@@ -101,7 +108,14 @@ function normalizeResourcePath(path) {
   return normalized || 'chat/completions'
 }
 
-function isAllowedRuntimeTarget(targetBaseURL) {
+function isAllowedRuntimeTarget(targetBaseURL, request) {
+  if (
+    request.headers.has('authorization') &&
+    process.env.OPENAI_ALLOW_USER_PROXY_TARGETS !== 'false'
+  ) {
+    return true
+  }
+
   if (process.env.OPENAI_ALLOW_ANY_PROXY_TARGET === 'true') return true
 
   const allowlist = String(

@@ -1,0 +1,152 @@
+# SparrowPlotSpec generation rules
+
+## Goal
+
+- **Input**: a chart request in natural language.
+- **Output**: exactly one `SparrowPlotSpec` JSON object for Sparrow's AI playground and `renderAISpec()`.
+
+## Output contract
+
+- Return exactly one JSON object.
+- You may wrap the object in one fenced `json` block.
+- Do not return Markdown prose, bullets, or explanations outside the JSON.
+- Use explicit object keys and arrays only; do not use comments or trailing commas.
+
+## Root shapes
+
+Choose exactly one of these shapes:
+
+1. **Single view, single mark**
+
+```json
+{
+  "plot": {
+    "type": "interval",
+    "data": [{ "category": "A", "value": 12 }],
+    "encodings": { "x": "category", "y": "value" }
+  }
+}
+```
+
+2. **Single view, layered marks sharing scales**
+
+```json
+{
+  "plots": [
+    {
+      "type": "area",
+      "data": [{ "month": "Jan", "value": 12 }],
+      "encodings": { "x": "month", "y": "value" }
+    },
+    {
+      "type": "line",
+      "data": [{ "month": "Jan", "value": 12 }],
+      "encodings": { "x": "month", "y": "value" }
+    }
+  ]
+}
+```
+
+3. **Multi-panel layout**
+
+```json
+{
+  "width": 900,
+  "height": 360,
+  "view": {
+    "type": "row",
+    "padding": 24,
+    "children": [
+      {
+        "plot": {
+          "type": "interval",
+          "data": [{ "category": "A", "value": 3 }],
+          "encodings": { "x": "category", "y": "value" }
+        }
+      },
+      {
+        "plot": {
+          "type": "line",
+          "data": [{ "step": "Q1", "value": 2 }],
+          "encodings": { "x": "step", "y": "value" }
+        }
+      }
+    ]
+  }
+}
+```
+
+## Supported runtime surface
+
+### Marks
+
+Only use these mark types:
+
+- `point`
+- `line`
+- `interval`
+- `area`
+- `rect`
+- `cell`
+- `text`
+
+Do not use `link`, `path`, or any other unlisted mark type.
+
+### Views
+
+Only use these `view.type` values:
+
+- `row`
+- `col`
+- `layer`
+- `facet`
+
+### Data
+
+- `plot.data` must be an array of plain JSON objects.
+- For `view` specs, shared `data` may live on the nearest common parent.
+- In `facet` views, put the full dataset on the facet node and let child plots inherit filtered data.
+
+### Encodings
+
+- `encodings` should map channels to field names or constants.
+- Prefer common channels such as `x`, `y`, `fill`, `stroke`, `r`, and `text`.
+- Keep channel names simple and consistent with the chosen mark.
+
+## Layout rules
+
+- Use `plot` for one mark in one view.
+- Use `plots` when multiple marks should share the same scales and guides.
+- Use `view` only when panels need separate layout regions.
+- Prefer `plots` over `view.type = "layer"` when the chart is just a layered composition in one panel.
+- Use `facet` when the same child chart should repeat over grouped data.
+
+## Conservative defaults
+
+- Add `width` and `height` only when the user asks for size or a multi-panel layout benefits from an explicit canvas.
+- Prefer `guides: false` for compact examples unless axes or legends are important to the task.
+- For bar or column charts, usually set `scales.y.zero` to `true`.
+- For ordered categories on a line or area chart, usually set `scales.x.type` to `dot`.
+- Keep `styles` minimal and explicit.
+
+## What to infer
+
+Infer these pieces when the user does not specify them:
+
+- a nearest supported mark type
+- whether the request is single-mark, layered, or multi-panel
+- a small but realistic demo dataset
+- sensible scale defaults
+
+Do not infer unsupported runtime features.
+
+## Self-check
+
+Before finishing, confirm:
+
+- output is valid JSON
+- there is exactly one root object
+- every plot uses a supported mark type
+- `data` is an array wherever a leaf plot needs it
+- `view.type` is one of `row`, `col`, `layer`, or `facet`
+- you did not add prose outside the JSON

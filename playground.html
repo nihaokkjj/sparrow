@@ -628,10 +628,10 @@
         const isDirect = connectionModeSelect.value === 'direct'
         targetBaseURLInput.placeholder = isDirect
           ? 'https://api.openai.com/v1 或你的中转站地址'
-          : '留空则使用服务端默认目标，也可填写官方接口或中转站地址'
+          : '填写你的中转站 / 官方接口；留空则使用服务端默认目标'
         connectionModeHint.textContent = isDirect
           ? '直连模式会由浏览器直接请求这里填写的兼容 OpenAI 地址；目标站点必须允许 CORS。'
-          : '同源代理模式会先请求本地开发服务器，再转发到这里填写的官方接口或中转站地址，从而规避浏览器跨域限制。'
+          : '同源代理模式仍请求 /api/openai；如果填写自己的中转站，请同时填写自己的 API Key，服务端会用这组用户信息转发。'
       }
 
       function initializeProviderSettings() {
@@ -687,6 +687,10 @@
             proxyBaseURL: defaultProviderSettings.proxyBaseURL,
             targetBaseURL: targetBaseURLInput.value.trim()
           })
+          const usesUserProxyTarget =
+            requestConfig.connectionMode === 'proxy' &&
+            targetBaseURLInput.value.trim()
+          const apiKey = apiKeyInput.value.trim()
 
           if (
             requestConfig.connectionMode === 'direct' &&
@@ -697,10 +701,17 @@
             return
           }
 
+          if (usesUserProxyTarget && !apiKey) {
+            statusNode.textContent =
+              '使用自己的中转站时，请同时填写自己的 API Key。'
+            statusNode.className = 'status error'
+            return
+          }
+
           provider = createOpenAICompatibleProvider({
             baseURL: requestConfig.baseURL,
             headers: requestConfig.headers,
-            apiKey: apiKeyInput.value.trim(),
+            apiKey,
             model: modelInput.value.trim() || defaultProviderSettings.model
           })
           persistProviderSettings()
