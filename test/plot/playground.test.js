@@ -1,11 +1,37 @@
 import { expect, test, vi } from 'vitest'
 import {
+  DEFAULT_PLOT_SPEC_SYSTEM_PROMPT,
+  createPlotSpecMessages,
   createMockPlotProvider,
   createOpenAICompatibleProvider,
   createPlotSpecChunkBuffer,
   parsePlotSpecResponse,
   streamPlotSpec
 } from '../../src/plot/playground.js'
+import {
+  OPENAI_PROXY_TARGET_HEADER,
+  buildOpenAICompatibleRequestURL,
+  buildProviderRequestConfig,
+  buildProxyTargetURL
+} from '../../src/plot/providerConfig.js'
+
+test('createPlotSpecMessages() instructs the model to output SparrowPlotSpec JSON', () => {
+  const messages = createPlotSpecMessages('make a line chart')
+
+  expect(messages).toEqual([
+    {
+      role: 'system',
+      content: DEFAULT_PLOT_SPEC_SYSTEM_PROMPT
+    },
+    {
+      role: 'user',
+      content: 'make a line chart'
+    }
+  ])
+  expect(messages[0].content).toContain('SparrowPlotSpec JSON')
+  expect(messages[0].content).toContain('plots for multiple layered marks')
+  expect(messages[0].content).toContain('view for multi-panel layouts')
+})
 
 test('parsePlotSpecResponse() extracts JSON from fenced model output', () => {
   const spec = parsePlotSpecResponse(`
@@ -61,6 +87,60 @@ test('streamPlotSpec() runs prompt -> provider -> chunk buffer -> spec -> render
   expect(result.spec.plot.type).toBe('interval')
 })
 
+test('streamPlotSpec() renders view specs with the default AI renderer', async () => {
+  const provider = {
+    async *stream() {
+      yield JSON.stringify({
+        width: 720,
+        height: 320,
+        view: {
+          type: 'row',
+          padding: 20,
+          children: [
+            {
+              plot: {
+                type: 'interval',
+                data: [
+                  { category: 'A', value: 3 },
+                  { category: 'B', value: 5 }
+                ],
+                encodings: { x: 'category', y: 'value' }
+              },
+              scales: {
+                y: { zero: true }
+              },
+              guides: false
+            },
+            {
+              plot: {
+                type: 'line',
+                data: [
+                  { step: 'Q1', value: 2 },
+                  { step: 'Q2', value: 6 }
+                ],
+                encodings: { x: 'step', y: 'value' }
+              },
+              scales: {
+                x: { type: 'dot' },
+                y: { zero: true }
+              },
+              guides: false
+            }
+          ]
+        }
+      })
+    }
+  }
+
+  const result = await streamPlotSpec({
+    prompt: 'make a small dashboard',
+    provider
+  })
+
+  expect(result.result.views).toHaveLength(2)
+  expect(result.result.marks).toHaveLength(3)
+})
+
 test('createOpenAICompatibleProvider() parses SSE content deltas', async () => {
   const payload = [
     'data: {"choices":[{"delta":{"content":"{\\"plot\\":"}}]}\n',
@@ -95,4 +175,88 @@ test('createOpenAICompatibleProvider() parses SSE content deltas', async () => {
 
   expect(fetchMock).toHaveBeenCalledTimes(1)
   expect(text).toContain('"type":"line"')
+})
+
+test('buildOpenAICompatibleRequestURL() joins base URL and chat path safely', () => {
+  expect(buildOpenAICompatibleRequestURL('https://example.com/v1')).toBe(
+    'https://example.com/v1/chat/completions'
+  )
+  expect(buildOpenAICompatibleRequestURL('/api/openai')).toBe(
+    '/api/openai/chat/completions'
+  )
+})
+
+test('buildProviderRequestConfig() adds a proxy target header only in proxy mode', () => {
+  expect(
+    buildProviderRequestConfig({
+      connectionMode: 'proxy',
+      targetBaseURL: 'https://relay.example.com/v1'
+    })
+  ).toEqual({
+    connectionMode: 'proxy',
+    baseURL: '/api/openai',
+    headers: {
+      [OPENAI_PROXY_TARGET_HEADER]: 'https://relay.example.com/v1'
+    }
+  })
+
+  expect(
+    buildProviderRequestConfig({
+      connectionMode: 'direct',
+      targetBaseURL: 'https://api.openai.com/v1'
+    })
+  ).toEqual({
+    connectionMode: 'direct',
+    baseURL: 'https://api.openai.com/v1',
+    headers: {}
+  })
+})
+
+test('buildProxyTargetURL() resolves a same-origin proxy request to the chosen target', () => {
+  expect(
+    buildProxyTargetURL({
+      proxyPath: '/api/openai',
+      requestURL: '/api/openai/chat/completions?stream=true',
+      targetBaseURL: 'https://relay.example.com/v1'
+    })
+  ).toBe('https://relay.example.com/v1/chat/completions?stream=true')
+})
+
+test('createOpenAICompatibleProvider() forwards custom proxy headers to fetch', async () => {
+  const fetchMock = vi.fn(async () => {
+    const encoder = new TextEncoder()
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: [DONE]\n'))
+          controller.close()
+        }
+      }),
+      { status: 200 }
+    )
+  })
+
+  const requestConfig = buildProviderRequestConfig({
+    connectionMode: 'proxy',
+    targetBaseURL: 'https://relay.example.com/v1'
+  })
+
+  const provider = createOpenAICompatibleProvider({
+    baseURL: requestConfig.baseURL,
+    headers: requestConfig.headers,
+    model: 'demo-model',
+    fetch: fetchMock
+  })
+
+  await provider.stream('show me a line chart')
+
+  expect(fetchMock).toHaveBeenCalledWith('/api/openai/chat/completions', {
+    method: 'POST',
+    headers: expect.objectContaining({
+      'Content-Type': 'application/json',
+      [OPENAI_PROXY_TARGET_HEADER]: 'https://relay.example.com/v1'
+    }),
+    body: expect.any(String),
+    signal: undefined
+  })
 })

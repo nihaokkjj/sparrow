@@ -22,7 +22,6 @@ export function legendRamp(
   renderer.save()
   renderer.translate(x, y)
 
-  // 绘制标签
   if (label) {
     renderer.text({
       text: label,
@@ -35,16 +34,20 @@ export function legendRamp(
     })
   }
 
-  // 用一条条紧靠的线来实现渐变效果
-  // 将每条线的位置 x 转换到比例尺的定义域内
   const value = createLinear({ domain: [0, width], range: domain })
   const legendY = label ? height * 2 : 0
-  for (let i = 0; i < width; i += 1) {
-    const stroke = scale(value(i))
-    renderer.line({ x1: i, y1: legendY, x2: i, y2: legendY + height, stroke })
+
+  for (let index = 0; index < width; index += 1) {
+    const stroke = scale(value(index))
+    renderer.line({
+      x1: index,
+      y1: legendY,
+      x2: index,
+      y2: legendY + height,
+      stroke
+    })
   }
 
-  // 绘制 ticks
   const position = createLinear({ domain, range: [0, width] })
   const values = position.ticks(tickCount)
   const ticks = values.map((d) => ({

@@ -1,13 +1,18 @@
-import { renderPlotSpec } from './renderPlotSpec.js'
+﻿import { renderAISpec } from './renderAISpec.js'
+
+import { buildOpenAICompatibleRequestURL } from './providerConfig.js'
 
 export const DEFAULT_PLOT_SPEC_SYSTEM_PROMPT = [
-  'You generate JSON only for Sparrow plot specs.',
-  'Return a single JSON object with keys such as width, height, padding, coordinate, plot, scales, and guides.',
-  'Only use plot.type values point, line, or interval.',
+  'You generate SparrowPlotSpec JSON only for the Sparrow runtime.',
+  'Return exactly one SparrowPlotSpec JSON object with keys such as width, height, padding, coordinate, plot, plots, view, scales, and guides.',
+  'Use plot for one layer, or plots for multiple layered marks in the same view.',
+  'Use view for multi-panel layouts. view.type may be row, col, layer, or facet, and view.children may contain nested views or plot leaves.',
+  'Prefer plots over view.type layer when marks should share the same scales and guides.',
+  'Only use plot.type or plots[].type values point, line, or interval.',
   'plot.data must be an array of plain JSON objects.',
   'plot.encodings must map channel names like x, y, fill, stroke, r to field names or constants.',
-  'Do not return Markdown unless the JSON is inside a single fenced json block.',
-  'Do not include explanations before or after the JSON.'
+  'Do not return Markdown unless the SparrowPlotSpec JSON is inside a single fenced json block.',
+  'Do not include explanations before or after the SparrowPlotSpec JSON.'
 ].join(' ')
 
 export function createPlotSpecMessages(
@@ -91,7 +96,7 @@ export function createPlotSpecChunkBuffer({
 export async function streamPlotSpec({
   prompt,
   provider,
-  render = renderPlotSpec,
+  render = renderAISpec,
   renderOptions,
   buffer = createPlotSpecChunkBuffer(),
   signal,
@@ -129,7 +134,7 @@ export async function streamPlotSpec({
     const spec = buffer.finish()
     if (!spec) {
       throw new Error(
-        'Provider output did not contain a valid Sparrow plot spec JSON object.'
+        'Provider output did not contain a valid SparrowPlotSpec JSON object.'
       )
     }
 
@@ -178,7 +183,7 @@ export function createOpenAICompatibleProvider({
       }
 
       const response = await fetchImpl(
-        `${baseURL.replace(/\/$/, '')}/chat/completions`,
+        buildOpenAICompatibleRequestURL(baseURL),
         {
           method: 'POST',
           headers: {
@@ -339,9 +344,7 @@ function extractOpenAICompatibleDelta(payload) {
 
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
-    return content
-      .map((item) => item?.text || item?.content || '')
-      .join('')
+    return content.map((item) => item?.text || item?.content || '').join('')
   }
 
   return ''
@@ -399,7 +402,8 @@ function extractJSONObjectCandidates(text) {
 
 function normalizeChunk(chunk, decoder = new TextDecoder()) {
   if (typeof chunk === 'string') return chunk
-  if (chunk instanceof Uint8Array) return decoder.decode(chunk, { stream: true })
+  if (chunk instanceof Uint8Array)
+    return decoder.decode(chunk, { stream: true })
   if (ArrayBuffer.isView(chunk)) return decoder.decode(chunk, { stream: true })
   if (chunk instanceof ArrayBuffer) {
     return decoder.decode(new Uint8Array(chunk), { stream: true })
@@ -410,6 +414,81 @@ function normalizeChunk(chunk, decoder = new TextDecoder()) {
 function createMockSpec(prompt) {
   const normalized = String(prompt || '').toLowerCase()
 
+  if (
+    containsAny(normalized, [
+      'dashboard',
+      'panel',
+      'compare',
+      'comparison',
+      'layout'
+    ])
+  ) {
+    return {
+      width: 900,
+      height: 360,
+      padding: 24,
+      view: {
+        type: 'row',
+        padding: 24,
+        children: [
+          {
+            plot: {
+              type: 'interval',
+              data: [
+                { category: 'Acquire', value: 18 },
+                { category: 'Activate', value: 26 },
+                { category: 'Retain', value: 21 },
+                { category: 'Revenue', value: 30 }
+              ],
+              encodings: {
+                x: 'category',
+                y: 'value'
+              },
+              styles: {
+                fill: '#2563eb',
+                stroke: '#0f172a',
+                strokeWidth: 1
+              }
+            },
+            scales: {
+              y: { zero: true }
+            },
+            guides: {
+              x: { label: 'Stage' },
+              y: { label: 'Value', grid: true }
+            }
+          },
+          {
+            plot: {
+              type: 'line',
+              data: [
+                { month: 'Jan', value: 16 },
+                { month: 'Feb', value: 22 },
+                { month: 'Mar', value: 28 },
+                { month: 'Apr', value: 26 }
+              ],
+              encodings: {
+                x: 'month',
+                y: 'value'
+              },
+              styles: {
+                stroke: '#7c3aed',
+                strokeWidth: 3
+              }
+            },
+            scales: {
+              x: { type: 'dot' },
+              y: { zero: true }
+            },
+            guides: {
+              x: { label: 'Month' },
+              y: { label: 'Trend', grid: true }
+            }
+          }
+        ]
+      }
+    }
+  }
   if (containsAny(normalized, ['line', 'trend', '走势', '趋势'])) {
     return {
       width: 640,

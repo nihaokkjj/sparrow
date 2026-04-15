@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -24,11 +24,24 @@
       body {
         margin: 0;
         font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-          'Segoe UI', sans-serif;
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
         background:
-          radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 32%),
-          radial-gradient(circle at top right, rgba(124, 58, 237, 0.22), transparent 28%),
+          radial-gradient(
+            circle at top left,
+            rgba(59, 130, 246, 0.2),
+            transparent 32%
+          ),
+          radial-gradient(
+            circle at top right,
+            rgba(124, 58, 237, 0.22),
+            transparent 28%
+          ),
           linear-gradient(180deg, #08111f 0%, #050b15 100%);
         color: var(--text);
         min-height: 100vh;
@@ -62,7 +75,11 @@
         content: '';
         width: 36px;
         height: 1px;
-        background: linear-gradient(90deg, rgba(124, 58, 237, 0.9), transparent);
+        background: linear-gradient(
+          90deg,
+          rgba(124, 58, 237, 0.9),
+          transparent
+        );
       }
 
       h1 {
@@ -82,7 +99,11 @@
       .hero-note {
         padding: 18px 20px;
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(124, 58, 237, 0.08), rgba(5, 11, 21, 0.2));
+        background: linear-gradient(
+          180deg,
+          rgba(124, 58, 237, 0.08),
+          rgba(5, 11, 21, 0.2)
+        );
         backdrop-filter: blur(18px);
       }
 
@@ -330,18 +351,19 @@
     <div class="shell">
       <section class="hero">
         <div>
-          <div class="eyebrow">Sparrow · AI Playground</div>
-          <h1>Prompt → Provider → Chunk Buffer → JSON Spec → SVG</h1>
+          <div class="eyebrow">Sparrow · AI 演示台</div>
+          <h1>AI Sparrow</h1>
           <p>
-            A minimal lab for turning natural language into a Sparrow plot spec, streaming
-            model chunks, parsing JSON progressively, and rendering the result with
-            <code>renderPlotSpec()</code>.
+            这是一个轻量级演示页面，可将自然语言转换为 Sparrow
+            图表规范，实时接收 模型分块输出，渐进解析 JSON，并通过
+            <code>renderAISpec()</code>
+            渲染最终结果。
           </p>
         </div>
         <aside class="hero-note panel">
-          <strong>Minimal by design</strong>
-          The mock provider works out of the box. Switch to an OpenAI-compatible endpoint when
-          you want real model output.
+          <strong>极简设计</strong>
+          默认的 mock provider 开箱即用；如果你想查看真实模型输出，可切换到兼容
+          OpenAI 的接口端点。
         </aside>
       </section>
 
@@ -350,7 +372,9 @@
           <p class="section-title">Input</p>
           <div class="field">
             <label for="prompt">Prompt</label>
-            <textarea id="prompt" name="prompt">做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea>
+            <textarea id="prompt" name="prompt">
+做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea
+            >
           </div>
 
           <div class="field">
@@ -363,36 +387,62 @@
 
           <div id="provider-config" class="hidden">
             <div class="field">
-              <label for="baseURL">Base URL</label>
+              <label for="connectionMode">连接方式</label>
+              <select id="connectionMode" name="connectionMode">
+                <option value="proxy">同源代理（推荐，避免 CORS）</option>
+                <option value="direct">浏览器直连 / 中转站</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="targetBaseURL">目标 Base URL</label>
               <input
-                id="baseURL"
-                name="baseURL"
+                id="targetBaseURL"
+                name="targetBaseURL"
                 type="text"
-                value="https://api.openai.com/v1"
                 autocomplete="off"
+                placeholder="https://api.openai.com/v1 或你的中转站地址"
               />
             </div>
+
+            <div class="hint" id="connection-mode-hint"></div>
 
             <div class="inline">
               <div class="field">
                 <label for="model">Model</label>
-                <input id="model" name="model" type="text" value="gpt-4o-mini" />
+                <input
+                  id="model"
+                  name="model"
+                  type="text"
+                  value="gpt-4o-mini"
+                />
               </div>
               <div class="field">
                 <label for="apiKey">API Key</label>
-                <input id="apiKey" name="apiKey" type="password" autocomplete="off" />
+                <input
+                  id="apiKey"
+                  name="apiKey"
+                  type="password"
+                  autocomplete="off"
+                />
               </div>
             </div>
           </div>
 
           <div class="button-row">
             <button type="submit" id="run">Generate</button>
-            <button type="button" class="secondary" id="stop" disabled>Stop</button>
+            <button type="button" class="secondary" id="stop" disabled>
+              Stop
+            </button>
           </div>
 
           <div class="hint">
-            The mock mode returns chunked Markdown with a fenced JSON block, so you can watch
-            the parser recover the spec before rendering.
+            Mock 模式会返回带有 fenced JSON 代码块的分段
+            Markdown，方便你在渲染前 观察解析器如何逐步恢复图表规范。
+          </div>
+          <div class="hint">
+            现在可自由选择浏览器直连，或走同源代理再转发到官方接口 /
+            中转站地址， 不再需要把目标地址直接写死在本地配置里。
           </div>
         </form>
 
@@ -406,7 +456,9 @@
               <div id="summary" class="status">No spec yet</div>
             </div>
             <div class="preview" id="preview">
-              <div class="preview-empty">Your rendered SVG will appear here.</div>
+              <div class="preview-empty">
+                Your rendered SVG will appear here.
+              </div>
             </div>
           </section>
 
@@ -414,7 +466,9 @@
             <div class="panel">
               <div class="preview-head">
                 <div>
-                  <p class="section-title" style="margin-bottom: 8px">Chunk Buffer</p>
+                  <p class="section-title" style="margin-bottom: 8px">
+                    Chunk Buffer
+                  </p>
                   <div class="status">Live provider text stream</div>
                 </div>
               </div>
@@ -424,8 +478,12 @@
             <div class="panel">
               <div class="preview-head">
                 <div>
-                  <p class="section-title" style="margin-bottom: 8px">Parsed JSON Spec</p>
-                  <div class="status">Last valid object extracted from the buffer</div>
+                  <p class="section-title" style="margin-bottom: 8px">
+                    Parsed JSON Spec
+                  </p>
+                  <div class="status">
+                    Last valid object extracted from the buffer
+                  </div>
                 </div>
               </div>
               <pre id="spec-json" class="json"></pre>
@@ -435,16 +493,18 @@
       </section>
 
       <p class="footer">
-        Tip: run <code>pnpm dev</code> in this folder and open
-        <code>/playground.html</code>.
+        提示：在当前目录运行 <code>pnpm dev</code>，然后打开
+        <code>/playground.html</code>。
       </p>
     </div>
 
     <script type="module">
       import {
+        buildProviderRequestConfig,
         createMockPlotProvider,
         createOpenAICompatibleProvider,
         createPlotSpecChunkBuffer,
+        getDefaultPlaygroundProviderSettings,
         streamPlotSpec
       } from '/src/plot/index.js'
 
@@ -452,7 +512,9 @@
       const promptInput = document.getElementById('prompt')
       const providerSelect = document.getElementById('provider')
       const providerConfig = document.getElementById('provider-config')
-      const baseURLInput = document.getElementById('baseURL')
+      const connectionModeSelect = document.getElementById('connectionMode')
+      const targetBaseURLInput = document.getElementById('targetBaseURL')
+      const connectionModeHint = document.getElementById('connection-mode-hint')
       const modelInput = document.getElementById('model')
       const apiKeyInput = document.getElementById('apiKey')
       const runButton = document.getElementById('run')
@@ -462,8 +524,128 @@
       const streamLogNode = document.getElementById('stream-log')
       const specJsonNode = document.getElementById('spec-json')
       const previewNode = document.getElementById('preview')
+      const env = import.meta.env || {}
+      const providerSettingsKey = 'sparrow.playground.provider-settings'
+      const defaultProviderSettings = getDefaultPlaygroundProviderSettings(env)
 
       let controller = null
+
+      function getSpecPlots(spec) {
+        const plots = []
+        visitSpecPlots(spec, plots)
+        return plots
+      }
+
+      function visitSpecPlots(spec, plots) {
+        if (!spec || typeof spec !== 'object') return
+        if (Array.isArray(spec?.plots)) {
+          plots.push(...spec.plots)
+          return
+        }
+        if (Array.isArray(spec?.plot)) {
+          plots.push(...spec.plot)
+          return
+        }
+        if (spec?.plot) {
+          plots.push(spec.plot)
+          return
+        }
+        if (spec?.view) {
+          visitViewPlots(spec.view, plots)
+          return
+        }
+        if (
+          Array.isArray(spec?.children) &&
+          ['row', 'col', 'layer', 'facet'].includes(spec?.type)
+        ) {
+          visitViewPlots(spec, plots)
+          return
+        }
+        if (spec?.type && Array.isArray(spec?.data)) {
+          plots.push(spec)
+        }
+      }
+
+      function visitViewPlots(view, plots) {
+        if (!view || typeof view !== 'object') return
+        if (!Array.isArray(view.children)) return
+        view.children.forEach((child) => {
+          visitSpecPlots(child, plots)
+        })
+      }
+
+      function getLayoutLabel(spec) {
+        const root = spec?.view || spec
+        if (
+          root &&
+          typeof root === 'object' &&
+          Array.isArray(root.children) &&
+          ['row', 'col', 'layer', 'facet'].includes(root.type)
+        ) {
+          return root.type
+        }
+        return null
+      }
+
+      function summarizeSpec(spec) {
+        const plots = getSpecPlots(spec)
+        const types = plots.map((plot) => plot?.type || 'unknown')
+        const count = plots.reduce(
+          (total, plot) =>
+            total + (Array.isArray(plot?.data) ? plot.data.length : 0),
+          0
+        )
+        return {
+          typeLabel: types.length > 0 ? types.join(' + ') : 'unknown',
+          count,
+          layoutLabel: getLayoutLabel(spec)
+        }
+      }
+
+      function readStoredProviderSettings() {
+        try {
+          return JSON.parse(localStorage.getItem(providerSettingsKey) || '{}')
+        } catch {
+          return {}
+        }
+      }
+
+      function persistProviderSettings() {
+        localStorage.setItem(
+          providerSettingsKey,
+          JSON.stringify({
+            connectionMode: connectionModeSelect.value,
+            targetBaseURL: targetBaseURLInput.value.trim(),
+            model: modelInput.value.trim()
+          })
+        )
+      }
+
+      function syncConnectionModeUI() {
+        const isDirect = connectionModeSelect.value === 'direct'
+        targetBaseURLInput.placeholder = isDirect
+          ? 'https://api.openai.com/v1 或你的中转站地址'
+          : '留空则使用服务端默认目标，也可填写官方接口或中转站地址'
+        connectionModeHint.textContent = isDirect
+          ? '直连模式会由浏览器直接请求这里填写的兼容 OpenAI 地址；目标站点必须允许 CORS。'
+          : '同源代理模式会先请求本地开发服务器，再转发到这里填写的官方接口或中转站地址，从而规避浏览器跨域限制。'
+      }
+
+      function initializeProviderSettings() {
+        const stored = readStoredProviderSettings()
+        connectionModeSelect.value =
+          stored.connectionMode === 'direct'
+            ? 'direct'
+            : defaultProviderSettings.connectionMode
+        targetBaseURLInput.value =
+          typeof stored.targetBaseURL === 'string'
+            ? stored.targetBaseURL
+            : defaultProviderSettings.targetBaseURL
+        modelInput.value = stored.model || defaultProviderSettings.model
+        syncConnectionModeUI()
+      }
+
+      initializeProviderSettings()
 
       providerSelect.addEventListener('change', () => {
         providerConfig.classList.toggle(
@@ -471,6 +653,14 @@
           providerSelect.value !== 'openai-compatible'
         )
       })
+
+      connectionModeSelect.addEventListener('change', () => {
+        syncConnectionModeUI()
+        persistProviderSettings()
+      })
+
+      targetBaseURLInput.addEventListener('input', persistProviderSettings)
+      modelInput.addEventListener('input', persistProviderSettings)
 
       stopButton.addEventListener('click', () => {
         controller?.abort()
@@ -486,14 +676,32 @@
         controller = new AbortController()
 
         const buffer = createPlotSpecChunkBuffer()
-        const provider =
-          providerSelect.value === 'openai-compatible'
-            ? createOpenAICompatibleProvider({
-                baseURL: baseURLInput.value.trim(),
-                apiKey: apiKeyInput.value.trim(),
-                model: modelInput.value.trim()
-              })
-            : createMockPlotProvider()
+        let provider = createMockPlotProvider()
+
+        if (providerSelect.value === 'openai-compatible') {
+          const requestConfig = buildProviderRequestConfig({
+            connectionMode: connectionModeSelect.value,
+            proxyBaseURL: defaultProviderSettings.proxyBaseURL,
+            targetBaseURL: targetBaseURLInput.value.trim()
+          })
+
+          if (
+            requestConfig.connectionMode === 'direct' &&
+            !requestConfig.baseURL
+          ) {
+            statusNode.textContent = '直连模式下请先填写目标 Base URL。'
+            statusNode.className = 'status error'
+            return
+          }
+
+          provider = createOpenAICompatibleProvider({
+            baseURL: requestConfig.baseURL,
+            headers: requestConfig.headers,
+            apiKey: apiKeyInput.value.trim(),
+            model: modelInput.value.trim() || defaultProviderSettings.model
+          })
+          persistProviderSettings()
+        }
 
         runButton.disabled = true
         stopButton.disabled = false
@@ -502,7 +710,8 @@
         summaryNode.textContent = 'Waiting for JSON'
         streamLogNode.textContent = ''
         specJsonNode.textContent = ''
-        previewNode.innerHTML = '<div class="preview-empty">Streaming and parsing…</div>'
+        previewNode.innerHTML =
+          '<div class="preview-empty">Streaming and parsing…</div>'
 
         try {
           const result = await streamPlotSpec({
@@ -518,17 +727,24 @@
             },
             onSpec(spec) {
               specJsonNode.textContent = JSON.stringify(spec, null, 2)
-              const type = spec?.plot?.type || 'unknown'
-              const count = Array.isArray(spec?.plot?.data) ? spec.plot.data.length : 0
-              summaryNode.textContent = `${type} · ${count} rows`
+              const { typeLabel, count, layoutLabel } = summarizeSpec(spec)
+              summaryNode.textContent = layoutLabel
+                ? `${layoutLabel} view · ${typeLabel} · ${count} rows`
+                : `${typeLabel} · ${count} rows`
             },
             onRender(result, spec) {
-              statusNode.textContent = `Rendered ${spec.plot.type} chart from the latest valid JSON object.`
+              const { typeLabel, layoutLabel } = summarizeSpec(spec)
+              statusNode.textContent = layoutLabel
+                ? `Rendered ${layoutLabel} view with ${typeLabel} marks from the latest valid JSON object.`
+                : `Rendered ${typeLabel} chart from the latest valid JSON object.`
               statusNode.className = 'status ok'
             }
           })
 
-          statusNode.textContent = `Done. Parsed and rendered ${result.spec.plot.type}.`
+          const { typeLabel, layoutLabel } = summarizeSpec(result.spec)
+          statusNode.textContent = layoutLabel
+            ? `Done. Parsed and rendered ${layoutLabel} view with ${typeLabel}.`
+            : `Done. Parsed and rendered ${typeLabel}.`
           statusNode.className = 'status ok'
         } catch (error) {
           if (error?.name === 'AbortError') {

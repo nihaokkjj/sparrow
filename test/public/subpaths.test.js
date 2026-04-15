@@ -11,6 +11,7 @@ test('plot public barrel exposes plot composition APIs', () => {
   expect(plot.inferScales).toBeTypeOf('function')
   expect(plot.applyScales).toBeTypeOf('function')
   expect(plot.renderPlotSpec).toBeTypeOf('function')
+  expect(plot.renderAISpec).toBeTypeOf('function')
   expect(plot.streamPlotSpec).toBeTypeOf('function')
   expect(plot.createOpenAICompatibleProvider).toBeTypeOf('function')
   expect(plot.createMockPlotProvider).toBeTypeOf('function')

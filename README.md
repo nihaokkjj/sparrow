@@ -102,7 +102,9 @@ flowchart TD
     V0 --> L0
 
 ```
+
 模块调用关系
+
 ```mermaid
 flowchart LR
     A["原始数据 data"] --> B["encoding 初始化\nsrc/plot/encoding.js"]
@@ -122,6 +124,7 @@ flowchart LR
     O --> M
 
 ```
+
 # Sparrow
 
 Lightweight SVG renderer and visualization primitives.
@@ -260,14 +263,39 @@ blocks from the root entry:
 
 ## Minimal AI Playground
 
-The `plot` subpath now includes a minimal prompt-to-SVG chain:
+The `plot` subpath now includes a minimal prompt-to-`SparrowPlotSpec`-to-SVG chain:
 
 - `createOpenAICompatibleProvider(...)`
 - `createMockPlotProvider(...)`
 - `createPlotSpecChunkBuffer()`
 - `parsePlotSpecResponse(text)`
 - `streamPlotSpec(...)`
+- `renderAISpec(spec, options)`
 - `renderPlotSpec(spec, options)`
+
+The model-facing contract is: output a single `SparrowPlotSpec` JSON object,
+optionally wrapped in one fenced `json` block. Use `plot` for one layer or
+`plots` for multiple layered marks in the same view. Use `view` for multi-panel
+layouts backed by Sparrow views (`row`, `col`, `layer`, `facet`). Prefer
+`plots` over `view.type = "layer"` when marks should share the same scales and
+guides.
+
+Minimal `view` example:
+
+```json
+{
+  "width": 900,
+  "height": 360,
+  "view": {
+    "type": "row",
+    "padding": 24,
+    "children": [
+      { "plot": { "type": "interval" } },
+      { "plot": { "type": "line" } }
+    ]
+  }
+}
+```
 
 Example:
 
@@ -287,6 +315,40 @@ await streamPlotSpec({
 ```
 
 For a browser demo, run `pnpm dev` and open `/playground.html`.
+
+The Playground now supports two runtime connection modes for OpenAI-compatible
+providers:
+
+- `Same-origin proxy`: the browser calls the local dev proxy first, and the
+  proxy forwards the request to the official endpoint or any relay URL you fill
+  in at runtime.
+- `Direct / relay URL`: the browser calls the configured OpenAI-compatible URL
+  directly. This requires the target endpoint to allow CORS.
+
+Create a `.env.local` file in the repo root when you want to use a real model:
+
+```bash
+OPENAI_PROXY_TARGET=https://api.openai.com/v1
+OPENAI_API_KEY=sk-...
+```
+
+Or point the proxy at your own default relay:
+
+```bash
+OPENAI_PROXY_TARGET=http://localhost:3001/v1
+```
+
+Then run `pnpm dev`. In the Playground you can either:
+
+- choose `Same-origin proxy` and leave `Target Base URL` empty to use the
+  default server-side target from `.env.local`
+- choose `Same-origin proxy` and fill `Target Base URL` with any official or
+  relay URL at runtime
+- choose `Direct / relay URL` to call the target endpoint directly from the
+  browser
+
+The dev proxy keeps the streaming response shape expected by
+`createOpenAICompatibleProvider(...)`.
 
 Example:
 

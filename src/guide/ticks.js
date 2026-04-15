@@ -79,12 +79,10 @@ export function ticksCircular(
   { tickLength, fontSize, center }
 ) {
   for (const { x, y, text } of unique(ticks)) {
-    // 计算刻度和刻度文本的旋转角度
     const { tickRotation, textRotation } = rotationOf(center, [x, y])
     const [x2, y2] = [0, tickLength]
     const dy = textRotation === 0 ? '1.2em' : '-0.5em'
 
-    // 旋转刻度
     renderer.save()
     renderer.translate(x, y)
     renderer.rotate(degree(tickRotation))
@@ -99,7 +97,6 @@ export function ticksCircular(
       class: 'tick'
     })
 
-    // 在旋转刻度的基础上旋转文本
     renderer.save()
     renderer.translate(x2, y2)
     renderer.rotate(degree(textRotation))
@@ -114,6 +111,7 @@ export function ticksCircular(
       dy,
       class: 'text'
     })
+
     renderer.restore()
     renderer.restore()
   }

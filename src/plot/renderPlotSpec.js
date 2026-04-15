@@ -22,9 +22,12 @@ const DEFAULT_PADDING = {
 export function renderPlotSpec(input, options = {}) {
   const spec = normalizeSpec(input, options)
   const renderer = options.renderer || createRenderer(spec.width, spec.height)
-  const plot = initialize(spec.plot)
-  const scaleOptions = normalizeScaleOptions(spec.scales, plot, spec.plot)
-  const scaleDescriptors = inferScales([plot.channels], scaleOptions)
+  const plots = spec.plots.map(initialize)
+  const scaleOptions = normalizeScaleOptions(spec.scales, plots, spec.plots)
+  const scaleDescriptors = inferScales(
+    plots.map((plot) => plot.channels),
+    scaleOptions
+  )
   const scales = Object.fromEntries(
     Object.entries(scaleDescriptors).map(([name, descriptor]) => [
       name,
@@ -37,15 +40,26 @@ export function renderPlotSpec(input, options = {}) {
     transforms: spec.coordinate.transforms
   })
 
-  const values = applyScales(plot.channels, scales)
-  const marks = plot.geometry(
-    renderer,
-    plot.index,
-    scales,
-    values,
-    plot.styles,
-    coordinate
-  )
+  const renderedPlots = plots.map((plot, index) => {
+    const values = applyScales(plot.channels, scales)
+    const marks = plot.geometry(
+      renderer,
+      plot.index,
+      scales,
+      values,
+      plot.styles,
+      coordinate
+    )
+
+    return {
+      ...spec.plots[index],
+      ...plot,
+      values,
+      marks
+    }
+  })
+
+  const marks = renderedPlots.flatMap((plot) => plot.marks)
 
   const guideDescriptors = inferGuides(
     scaleDescriptors,
@@ -73,10 +87,8 @@ export function renderPlotSpec(input, options = {}) {
     scaleDescriptors,
     guideDescriptors,
     coordinate,
-    plot: {
-      ...plot,
-      values
-    }
+    plot: renderedPlots[0],
+    plots: renderedPlots
   }
 }
 
@@ -85,18 +97,17 @@ function normalizeSpec(input, options) {
     throw new Error('renderPlotSpec expects a plot spec object.')
   }
 
-  if (Array.isArray(input.plots) && input.plots.length !== 1) {
-    throw new Error('renderPlotSpec only supports a single plot.')
-  }
-
-  const width = options.width ?? input.width ?? DEFAULT_SIZE.width
-  const height = options.height ?? input.height ?? DEFAULT_SIZE.height
+  const width =
+    options.width ?? input.width ?? options.frame?.width ?? DEFAULT_SIZE.width
+  const height =
+    options.height ?? input.height ?? options.frame?.height ?? DEFAULT_SIZE.height
+  const frame = normalizeFrame(options.frame ?? input.frame, width, height)
   const padding = normalizePadding(input.padding)
   const plotArea = {
-    x: padding.left,
-    y: padding.top,
-    width: width - padding.left - padding.right,
-    height: height - padding.top - padding.bottom
+    x: frame.x + padding.left,
+    y: frame.y + padding.top,
+    width: frame.width - padding.left - padding.right,
+    height: frame.height - padding.top - padding.bottom
   }
 
   if (plotArea.width <= 0 || plotArea.height <= 0) {
@@ -104,21 +115,36 @@ function normalizeSpec(input, options) {
   }
 
   return {
-    width,
-    height,
+    width: Math.max(width, frame.x + frame.width),
+    height: Math.max(height, frame.y + frame.height),
     clear: options.clear ?? true,
     container: options.container ?? input.container,
     plotArea,
     coordinate: normalizeCoordinate(input.coordinate),
     guides: normalizeGuideOptions(input.guides),
     scales: normalizeOptions(input.scales),
-    plot: normalizePlot(input.plot || input.plots?.[0] || input)
+    plots: normalizePlots(input)
   }
 }
 
-function normalizePlot(plot) {
+function normalizePlots(input) {
+  const defaultData = Array.isArray(input.data) ? input.data : undefined
+  const plots = Array.isArray(input.plots)
+    ? input.plots
+    : Array.isArray(input.plot)
+      ? input.plot
+      : [input.plot || input]
+
+  if (plots.length === 0) {
+    throw new Error('renderPlotSpec requires at least one plot.')
+  }
+
+  return plots.map((plot) => normalizePlot(plot, defaultData))
+}
+
+function normalizePlot(plot, defaultData) {
   const {
-    data,
+    data = defaultData,
     type,
     encodings = {},
     statistics = [],
@@ -164,7 +190,31 @@ function normalizePadding(padding) {
   }
 }
 
+function normalizeFrame(frame, width, height) {
+  if (!frame) {
+    return {
+      x: 0,
+      y: 0,
+      width,
+      height
+    }
+  }
+
+  return {
+    x: frame.x ?? 0,
+    y: frame.y ?? 0,
+    width: frame.width ?? width,
+    height: frame.height ?? height
+  }
+}
+
 function normalizeCoordinate(coordinate = {}) {
+  if (Array.isArray(coordinate)) {
+    return {
+      transforms: coordinate.map((transform) => normalizeTransform(transform))
+    }
+  }
+
   if (typeof coordinate === 'string') {
     coordinate = { type: coordinate }
   }
@@ -191,7 +241,10 @@ function normalizeCoordinate(coordinate = {}) {
       }
     case 'polar':
       return {
-        transforms: [create({ type: 'polar', ...rest }), create({ type: 'cartesian' })]
+        transforms: [
+          create({ type: 'polar', ...rest }),
+          create({ type: 'cartesian' })
+        ]
       }
     default:
       throw new Error(`Unsupported coordinate type: ${type}`)
@@ -202,7 +255,9 @@ function normalizeTransform(transform) {
   if (typeof transform === 'function') return transform
   if (typeof transform === 'string') return create({ type: transform })
   if (transform && typeof transform === 'object') return create(transform)
-  throw new Error('Coordinate transforms must be functions, strings, or objects.')
+  throw new Error(
+    'Coordinate transforms must be functions, strings, or objects.'
+  )
 }
 
 function normalizeGuideOptions(guides) {
@@ -231,11 +286,16 @@ function normalizeGuideOption(option) {
   return { ...option }
 }
 
-function normalizeScaleOptions(scales, plot, plotSpec) {
+function normalizeScaleOptions(scales, plots, plotSpecs) {
   const options = normalizeOptions(scales)
 
-  if (plotSpec.type === 'interval' && !plot.channels.x1 && !options.x?.type) {
-    options.x = { ...options.x, type: 'band' }
+  for (let index = 0; index < plotSpecs.length; index += 1) {
+    const plot = plots[index]
+    const plotSpec = plotSpecs[index]
+    if (plotSpec.type === 'interval' && !plot.channels.x1 && !options.x?.type) {
+      options.x = { ...options.x, type: 'band' }
+      break
+    }
   }
 
   return options

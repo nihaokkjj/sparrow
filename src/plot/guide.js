@@ -20,7 +20,7 @@ export function inferGuides(scales, dimensions, options) {
 }
 
 function merge(options, { domain, label }) {
-  return { ...options, domain, label }
+  return { domain, label, ...options }
 }
 
 function inferLegendType({ type }) {
