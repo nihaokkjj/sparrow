@@ -58,17 +58,43 @@ Choose exactly one of these shapes:
     "padding": 24,
     "children": [
       {
-        "plot": {
-          "type": "interval",
-          "data": [{ "category": "A", "value": 3 }],
-          "encodings": { "x": "category", "y": "value" }
-        }
+        "type": "interval",
+        "data": [{ "category": "A", "value": 3 }],
+        "encodings": { "x": "category", "y": "value" }
       },
       {
-        "plot": {
-          "type": "line",
-          "data": [{ "step": "Q1", "value": 2 }],
-          "encodings": { "x": "step", "y": "value" }
+        "type": "line",
+        "data": [{ "step": "Q1", "value": 2 }],
+        "encodings": { "x": "step", "y": "value" }
+      }
+    ]
+  }
+}
+```
+
+4. **Facet layout (repeat chart by group)**
+
+```json
+{
+  "width": 900,
+  "height": 360,
+  "view": {
+    "type": "facet",
+    "data": [
+      { "region": "华东", "month": "Jan", "sales": 45 },
+      { "region": "华东", "month": "Feb", "sales": 52 },
+      { "region": "华南", "month": "Jan", "sales": 38 },
+      { "region": "华南", "month": "Feb", "sales": 41 }
+    ],
+    "facet": {
+      "by": "region"
+    },
+    "children": [
+      {
+        "type": "line",
+        "encodings": {
+          "x": "month",
+          "y": "sales"
         }
       }
     ]
@@ -109,7 +135,7 @@ Only use these `view.type` values:
 
 - `plot.data` must be an array of plain JSON objects.
 - For `view` specs, shared `data` may live on the nearest common parent.
-- In `facet` views, put the full dataset on the facet node and let child plots inherit filtered data.
+- In `facet` views, use `facet.by` to specify the grouping field (not `encodings`). Put the full dataset on the facet node and let child plots inherit filtered data.
 
 ### Encodings
 
@@ -144,7 +170,7 @@ Only use these `view.type` values:
 - Use `plot` for one mark in one view.
 - Use `plots` when multiple marks should share the same scales and guides.
 - Use `view` only when panels need separate layout regions.
-- In `view.children`, use one of these child shapes directly: a nested view node, `{ "plot": ... }`, `{ "plots": [...] }`, or a direct leaf mark spec.
+- In `view.children`, use one of these child shapes directly: a nested view node, `{ "type": "interval", ... }`, `{ "plots": [...] }`, or a direct leaf mark spec.
 - Prefer `plots` over `view.type = "layer"` when the chart is just a layered composition in one panel.
 - Use `facet` when the same child chart should repeat over grouped data.
 - Do not use `plots` to place multiple separate pie charts side by side; that should be a `view` layout.

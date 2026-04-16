@@ -31,6 +31,10 @@ test('listPlotSpecPromptPresets() includes minimal and skill-backed presets', ()
   expect(ids).toContain('sparrow-spec-creator')
   expect(ids).toContain('default-minimal')
   expect(minimalPrompt).toBe(MINIMAL_PLOT_SPEC_SYSTEM_PROMPT)
+  expect(minimalPrompt).toContain(
+    '{ "plot": { "type": "...", "data": [...], "encodings": {...} } }'
+  )
+  expect(minimalPrompt).toContain('Do not use plot.mark')
   expect(minimalPrompt).toContain('Supported view.type values are row, col, layer, and facet.')
   expect(minimalPrompt).toContain('Multiple independent pie charts should use view layouts instead of plots.')
   expect(minimalPrompt).toContain('Do not wrap nested views')

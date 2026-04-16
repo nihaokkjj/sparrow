@@ -1,6 +1,36 @@
 import { expect, test } from 'vitest'
-import { inferGuides } from '../../src/plot/guide.js'
+import { inferGuides, planGuideLayout } from '../../src/plot/guide.js'
 import { renderPlotSpec } from '../../src/plot/renderPlotSpec.js'
+
+test('planGuideLayout() stacks axis and legend padding on the same side', () => {
+  const padding = planGuideLayout(
+    {
+      x: {
+        type: 'linear',
+        domain: [0, 100],
+        label: 'Revenue'
+      },
+      color: {
+        type: 'ordinal',
+        domain: ['North', 'South', 'East'],
+        label: 'Region'
+      }
+    },
+    {
+      isPolar: false,
+      isTranspose: false
+    },
+    {
+      x: { position: 'top', label: 'Revenue' },
+      color: { position: 'top', label: 'Region' }
+    }
+  )
+
+  expect(padding.top).toBeGreaterThan(80)
+  expect(padding.right).toBe(0)
+  expect(padding.bottom).toBe(0)
+  expect(padding.left).toBe(0)
+})
 
 test('inferGuides() keeps legend optimization synchronous and only accepts fitting placements', () => {
   const guides = inferGuides(

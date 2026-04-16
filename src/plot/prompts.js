@@ -4,6 +4,8 @@ export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'You generate SparrowPlotSpec JSON only for the Sparrow runtime.',
   'Return exactly one SparrowPlotSpec JSON object, optionally wrapped in one fenced json block, with no prose before or after it.',
   'Use plot for one leaf chart, plots for layered marks in one panel, and view for multi-panel layouts.',
+  'A single leaf chart should look like { "plot": { "type": "...", "data": [...], "encodings": {...} } }.',
+  'The mark name must be written in type, such as plot.type, plots[].type, or a direct leaf spec.type. Do not use plot.mark or a separate mark key.',
   'Supported view.type values are row, col, layer, and facet.',
   'In view.children, nested views must be direct objects with type and children. Do not wrap nested views inside { "view": { ... } }.',
   'View children may be nested view nodes, { plot: {...} }, { plots: [...] }, or direct leaf mark specs.',

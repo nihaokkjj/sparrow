@@ -3,7 +3,7 @@ import { createCoordinate } from '../coordinate/coordinate.js'
 import { createPlotAnimationPlayer, normalizeAnimation } from './animation.js'
 import { create } from './create.js'
 import { initialize } from './encoding.js'
-import { inferGuides } from './guide.js'
+import { inferGuides, planGuideLayout } from './guide.js'
 import { inferScales, applyScales } from './plot.js'
 
 const SUPPORTED_TYPES = new Set([
@@ -45,8 +45,31 @@ export function renderPlotSpec(input, options = {}) {
     ])
   )
 
+  const initialPlotArea = createPlotArea(spec.frame, spec.padding)
+  const layoutCoordinate = createCoordinate({
+    ...initialPlotArea,
+    transforms: spec.coordinate.transforms
+  })
+  const plannedPadding = mergePadding(
+    spec.padding,
+    planGuideLayout(
+      scaleDescriptors,
+      {
+        frameX: initialPlotArea.x,
+        frameY: initialPlotArea.y,
+        frameWidth: initialPlotArea.width,
+        frameHeight: initialPlotArea.height,
+        outerWidth: spec.width,
+        outerHeight: spec.height,
+        isPolar: layoutCoordinate.isPolar?.() === true,
+        isTranspose: layoutCoordinate.isTranspose?.() === true
+      },
+      spec.guides
+    )
+  )
+  const plotArea = createPlotArea(spec.frame, plannedPadding)
   const coordinate = createCoordinate({
-    ...spec.plotArea,
+    ...plotArea,
     transforms: spec.coordinate.transforms
   })
 
@@ -78,10 +101,10 @@ export function renderPlotSpec(input, options = {}) {
   const guideDescriptors = inferGuides(
     scaleDescriptors,
     {
-      frameX: spec.plotArea.x,
-      frameY: spec.plotArea.y,
-      frameWidth: spec.plotArea.width,
-      frameHeight: spec.plotArea.height,
+      frameX: plotArea.x,
+      frameY: plotArea.y,
+      frameWidth: plotArea.width,
+      frameHeight: plotArea.height,
       outerWidth: spec.width,
       outerHeight: spec.height,
       isPolar: coordinate.isPolar?.() === true,
@@ -115,6 +138,7 @@ export function renderPlotSpec(input, options = {}) {
     scales,
     scaleDescriptors,
     guideDescriptors,
+    plotArea,
     coordinate,
     playAnimations,
     stopAnimations,
@@ -137,17 +161,6 @@ function normalizeSpec(input, options) {
     DEFAULT_SIZE.height
   const frame = normalizeFrame(options.frame ?? input.frame, width, height)
   const padding = normalizePadding(input.padding)
-  const plotArea = {
-    x: frame.x + padding.left,
-    y: frame.y + padding.top,
-    width: frame.width - padding.left - padding.right,
-    height: frame.height - padding.top - padding.bottom
-  }
-
-  if (plotArea.width <= 0 || plotArea.height <= 0) {
-    throw new Error('renderPlotSpec requires a positive plot area.')
-  }
-
   const plots = normalizePlots(input)
   const hasPiePlot = plots.some((plot) => plot.type === 'pie')
 
@@ -156,7 +169,8 @@ function normalizeSpec(input, options) {
     height: Math.max(height, frame.y + frame.height),
     clear: options.clear ?? true,
     container: options.container ?? input.container,
-    plotArea,
+    frame,
+    padding,
     coordinate: normalizeCoordinate(input.coordinate, { hasPiePlot }),
     guides: normalizeGuideOptions(input.guides),
     scales: normalizeOptions(input.scales),
@@ -230,6 +244,30 @@ function normalizePadding(padding) {
     right: padding?.right ?? DEFAULT_PADDING.right,
     bottom: padding?.bottom ?? DEFAULT_PADDING.bottom,
     left: padding?.left ?? DEFAULT_PADDING.left
+  }
+}
+
+function createPlotArea(frame, padding) {
+  const plotArea = {
+    x: frame.x + padding.left,
+    y: frame.y + padding.top,
+    width: frame.width - padding.left - padding.right,
+    height: frame.height - padding.top - padding.bottom
+  }
+
+  if (plotArea.width <= 0 || plotArea.height <= 0) {
+    throw new Error('renderPlotSpec requires a positive plot area.')
+  }
+
+  return plotArea
+}
+
+function mergePadding(basePadding, reservedPadding) {
+  return {
+    top: Math.max(basePadding.top, reservedPadding.top ?? 0),
+    right: Math.max(basePadding.right, reservedPadding.right ?? 0),
+    bottom: Math.max(basePadding.bottom, reservedPadding.bottom ?? 0),
+    left: Math.max(basePadding.left, reservedPadding.left ?? 0)
   }
 }
 

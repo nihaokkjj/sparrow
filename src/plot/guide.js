@@ -1,13 +1,57 @@
-export function inferGuides(scales, dimensions, options, aiOptions = {}) {
+const CONTINUOUS_LEGEND_TYPES = new Set([
+  'linear',
+  'log',
+  'time',
+  'threshold',
+  'quantile',
+  'quantize'
+])
+
+export function planGuideLayout(scales, dimensions, options = {}) {
   const { x: xScale, y: yScale, color: colorScale } = scales
   const { x = {}, y = {}, color = {} } = options
   const { display: dx = true } = x
   const { display: dy = true } = y
   const { display: dc = true } = color
-  const hasExplicitColorCoordinates =
-    Number.isFinite(color.x) || Number.isFinite(color.y)
+  const padding = { top: 0, right: 0, bottom: 0, left: 0 }
 
-  const guides = {
+  if (dx && xScale) {
+    reserveAxisPadding(padding, 'x', merge(x, xScale), dimensions)
+  }
+
+  if (dy && yScale) {
+    reserveAxisPadding(padding, 'y', merge(y, yScale), dimensions)
+  }
+
+  if (dc && colorScale) {
+    reserveLegendPadding(padding, merge(color, colorScale), colorScale)
+  }
+
+  return padding
+}
+
+export function inferGuides(scales, dimensions, options, aiOptions = {}) {
+  const guides = createGuideDescriptors(scales, dimensions, options)
+  const hasExplicitColorCoordinates =
+    Number.isFinite(options?.color?.x) || Number.isFinite(options?.color?.y)
+
+  // renderPlotSpec() is synchronous, so any guide optimization must stay
+  // rule-based here instead of returning a Promise.
+  if (aiOptions.enabled && guides.color && !hasExplicitColorCoordinates) {
+    return optimizeLegendLayout(guides, dimensions)
+  }
+
+  return guides
+}
+
+function createGuideDescriptors(scales, dimensions, options = {}) {
+  const { x: xScale, y: yScale, color: colorScale } = scales
+  const { x = {}, y = {}, color = {} } = options
+  const { display: dx = true } = x
+  const { display: dy = true } = y
+  const { display: dc = true } = color
+
+  return {
     ...(dx &&
       xScale && {
         x: {
@@ -26,21 +70,26 @@ export function inferGuides(scales, dimensions, options, aiOptions = {}) {
       }),
     ...(dc &&
       colorScale && {
-        color: {
-          ...merge(color, colorScale),
-          ...inferLegendPosition(dimensions, color, colorScale),
-          type: inferLegendType(colorScale)
-        }
+        color: createLegendDescriptor(color, colorScale, dimensions)
       })
   }
+}
 
-  // renderPlotSpec() is synchronous, so any guide optimization must stay
-  // rule-based here instead of returning a Promise.
-  if (aiOptions.enabled && guides.color && !hasExplicitColorCoordinates) {
-    return optimizeLegendLayout(guides, dimensions)
+function createLegendDescriptor(options, colorScale, dimensions) {
+  const type = inferLegendType(colorScale)
+  const position = normalizeLegendPosition(options.position)
+  const orientation = inferLegendOrientation(position, options.orientation, type)
+
+  return {
+    ...merge(options, colorScale),
+    ...(orientation && { orientation }),
+    ...inferLegendPosition(dimensions, options, colorScale, {
+      position,
+      type,
+      orientation
+    }),
+    type
   }
-
-  return guides
 }
 
 function optimizeLegendLayout(guides, dimensions) {
@@ -111,18 +160,38 @@ function merge(options, { domain, label }) {
   return { domain, label, ...options }
 }
 
-function inferLegendType({ type }) {
-  switch (type) {
-    case 'linear':
-    case 'log':
-    case 'time':
-    case 'threshold':
-    case 'quantile':
-    case 'quantize':
-      return 'legendRamp'
-    default:
-      return 'legendSwatches'
+function reserveAxisPadding(padding, axis, options, dimensions) {
+  const position = inferAxisPosition(axis, options.position, dimensions)
+  if (!isSide(position)) return
+
+  addPadding(padding, position, estimateAxisThickness(axis, options))
+}
+
+function reserveLegendPadding(padding, options, colorScale) {
+  if (Number.isFinite(options.x) || Number.isFinite(options.y)) {
+    return
   }
+
+  const position = normalizeLegendPosition(options.position)
+  const type = inferLegendType(colorScale)
+  const orientation = inferLegendOrientation(position, options.orientation, type)
+  const { width, height } = estimateLegendSize(type, colorScale, {
+    ...options,
+    orientation
+  })
+  const offset = options.offset ?? 24
+  const reserved =
+    position === 'left' || position === 'right' ? width + offset : height + offset
+
+  addPadding(padding, position, reserved)
+}
+
+function addPadding(padding, side, amount) {
+  padding[side] += Math.max(0, Math.ceil(amount))
+}
+
+function inferLegendType({ type }) {
+  return CONTINUOUS_LEGEND_TYPES.has(type) ? 'legendRamp' : 'legendSwatches'
 }
 
 function inferAxisPosition(axis, position, { isPolar = false, isTranspose = false }) {
@@ -140,14 +209,23 @@ function inferAxisPosition(axis, position, { isPolar = false, isTranspose = fals
 function inferLegendPosition(
   { frameX, frameY, frameWidth, frameHeight, outerWidth, outerHeight },
   options,
-  colorScale
+  colorScale,
+  {
+    position = normalizeLegendPosition(options.position),
+    type = inferLegendType(colorScale),
+    orientation = inferLegendOrientation(
+      position,
+      options.orientation,
+      type
+    )
+  } = {}
 ) {
-  const position = normalizeLegendPosition(options.position)
   const offset = options.offset ?? 24
 
-  const estimatedSize = colorScale
-    ? estimateLegendSizeForScale(colorScale)
-    : { width: 100, height: 150 }
+  const estimatedSize = estimateLegendSize(type, colorScale, {
+    ...options,
+    orientation
+  })
 
   const defaults = baseLegendPosition(
     position,
@@ -179,39 +257,12 @@ function inferLegendPosition(
   }
 }
 
-function estimateLegendSizeForScale(colorScale) {
-  if (!colorScale) return { width: 100, height: 150 }
-
-  const continuousTypes = ['linear', 'log', 'time', 'threshold', 'quantile', 'quantize']
-  if (continuousTypes.includes(colorScale.type)) {
-    return { width: 120, height: 200 }
-  }
-
-  const domain = colorScale.domain
-  const categoryCount = Array.isArray(domain) ? domain.length : 4
-  return { width: categoryCount * 60, height: categoryCount * 20 + 40 }
-}
-
 function estimateLegendSizeForGuide(guide) {
-  if (guide.type === 'legendRamp') {
-    return {
-      width: guide.width ?? 120,
-      height: guide.height ?? 200
-    }
-  }
-
-  return {
-    width: guide.estimatedSize?.width ?? 100,
-    height: guide.estimatedSize?.height ?? 150
-  }
+  return estimateLegendSize(guide.type, guide, guide)
 }
 
 function estimateVerticalLegendSize(domain) {
-  const categoryCount = Array.isArray(domain) ? domain.length : 4
-  return {
-    width: 60,
-    height: categoryCount * 18 + 40
-  }
+  return estimateSwatchLegendSize(domain, { orientation: 'vertical' })
 }
 
 function legendFitsPlacement(
@@ -284,6 +335,152 @@ function baseLegendPosition(
 function clamp(value, min, max) {
   if (max < min) return min
   return Math.min(Math.max(value, min), max)
+}
+
+function isSide(position) {
+  return (
+    position === 'top' ||
+    position === 'right' ||
+    position === 'bottom' ||
+    position === 'left'
+  )
+}
+
+function estimateAxisThickness(axis, options = {}) {
+  const tickLength = options.tickLength ?? 5
+  const fontSize = options.fontSize ?? 12
+  const label = options.label
+
+  if (axis === 'x') {
+    const tickTextHeight = fontSize * 1.6
+    const labelHeight = label ? fontSize * 1.8 : 0
+    return tickLength + tickTextHeight + labelHeight
+  }
+
+  const tickLabels = estimateAxisTickLabels(options)
+  const tickWidth = estimateMaxTextWidth(tickLabels, fontSize) + fontSize
+  const labelWidth = label ? estimateTextWidth(label, fontSize) + fontSize : 0
+  return tickLength + Math.max(tickWidth, labelWidth)
+}
+
+function estimateAxisTickLabels({ domain, type, formatter }) {
+  const values = sampleAxisTicks(domain, type)
+  return values.map((value) => formatText(applyFormatter(formatter, value)))
+}
+
+function sampleAxisTicks(domain, type) {
+  if (!Array.isArray(domain) || domain.length === 0) return []
+
+  if (type === 'linear' || type === 'log' || type === 'quantize') {
+    const [start, end] = domain
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return domain
+    if (start === end) return [start]
+    return uniqueValues([start, (start + end) / 2, end])
+  }
+
+  if (type === 'time') {
+    const [start, end] = domain
+    const startTime = +new Date(start)
+    const endTime = +new Date(end)
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return domain
+    if (startTime === endTime) return [new Date(startTime)]
+    return [
+      new Date(startTime),
+      new Date((startTime + endTime) / 2),
+      new Date(endTime)
+    ]
+  }
+
+  return domain
+}
+
+function estimateLegendSize(type, colorScale, options = {}) {
+  if (type === 'legendRamp') {
+    return estimateRampLegendSize(options)
+  }
+
+  return estimateSwatchLegendSize(colorScale?.domain, options)
+}
+
+function estimateRampLegendSize(options = {}) {
+  const width = options.width ?? 120
+  const height = options.height ?? 10
+  const fontSize = options.fontSize ?? 10
+  const tickLength = options.tickLength ?? height + 5
+  const labelHeight = options.label ? fontSize * 2 : 0
+
+  return {
+    width,
+    height: Math.ceil(labelHeight + height + tickLength + fontSize * 1.2)
+  }
+}
+
+function estimateSwatchLegendSize(domain, options = {}) {
+  const values = Array.isArray(domain) && domain.length > 0 ? domain : ['']
+  const orientation = options.orientation ?? 'horizontal'
+  const fontSize = options.fontSize ?? 10
+  const swatchSize = options.swatchSize ?? 10
+  const labels = values.map((value) =>
+    formatText(applyFormatter(options.formatter, value))
+  )
+  const maxLabelWidth = estimateMaxTextWidth(labels, fontSize)
+  const labelWidth = options.label ? estimateTextWidth(options.label, fontSize) : 0
+  const labelHeight = options.label ? swatchSize * 2 : 0
+
+  if (orientation === 'vertical') {
+    const itemGap = 20
+    return {
+      width: Math.ceil(
+        Math.max(labelWidth, swatchSize + 6 + maxLabelWidth, swatchSize * 4)
+      ),
+      height: Math.ceil(
+        labelHeight +
+          values.length * swatchSize +
+          Math.max(values.length - 1, 0) * itemGap
+      )
+    }
+  }
+
+  const itemWidth = Math.max(options.width ?? 48, swatchSize + 12)
+  const totalWidth = labels.reduce(
+    (sum, label) =>
+      sum + Math.max(itemWidth, swatchSize + 12 + estimateTextWidth(label, fontSize)),
+    0
+  )
+
+  return {
+    width: Math.ceil(Math.max(totalWidth, labelWidth)),
+    height: Math.ceil(labelHeight + Math.max(swatchSize, fontSize) + fontSize * 1.4)
+  }
+}
+
+function inferLegendOrientation(position, orientation, type) {
+  if (orientation) return orientation
+  if (type !== 'legendSwatches') return undefined
+  return position === 'left' || position === 'right' ? 'vertical' : 'horizontal'
+}
+
+function estimateMaxTextWidth(values, fontSize) {
+  return values.reduce(
+    (max, value) => Math.max(max, estimateTextWidth(value, fontSize)),
+    0
+  )
+}
+
+function estimateTextWidth(value, fontSize) {
+  return formatText(value).length * fontSize * 0.6
+}
+
+function applyFormatter(formatter, value) {
+  return typeof formatter === 'function' ? formatter(value) : value
+}
+
+function formatText(value) {
+  return value == null ? '' : String(value)
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values))
 }
 
 function normalizeHorizontal(position, fallback) {

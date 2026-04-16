@@ -216,6 +216,65 @@ test('renderPlotSpec() normalizes guide positions for axes and legends', () => {
   expect(result.guideDescriptors.color.y).toBeGreaterThan(result.coordinate.center()[1])
 })
 
+test('renderPlotSpec() reserves legend space before drawing a pie chart', () => {
+  const result = renderPlotSpec({
+    width: 260,
+    height: 220,
+    padding: 0,
+    plot: {
+      data: [
+        { category: 'A', value: 3 },
+        { category: 'B', value: 5 },
+        { category: 'C', value: 4 }
+      ],
+      type: 'pie',
+      encodings: {
+        value: 'value',
+        fill: 'category'
+      }
+    },
+    guides: {
+      color: { position: 'top', label: 'Category' }
+    }
+  })
+
+  const legendBottom =
+    result.guideDescriptors.color.y + result.guideDescriptors.color.estimatedSize.height
+
+  expect(result.plotArea.y).toBeGreaterThan(0)
+  expect(result.guideDescriptors.color.position).toBe('top')
+  expect(legendBottom).toBeLessThanOrEqual(result.plotArea.y)
+  expect(result.node.querySelectorAll('path')).toHaveLength(3)
+})
+
+test('renderPlotSpec() reserves axis space even when padding is zero', () => {
+  const result = renderPlotSpec({
+    width: 280,
+    height: 180,
+    padding: 0,
+    data: [
+      { x: 0.2, y: 0.35 },
+      { x: 0.7, y: 0.65 }
+    ],
+    type: 'point',
+    encodings: {
+      x: 'x',
+      y: 'y'
+    },
+    guides: {
+      x: { position: 'top', label: 'X Axis' },
+      y: { position: 'left', label: 'Y Axis' },
+      color: false
+    }
+  })
+
+  expect(result.plotArea.x).toBeGreaterThan(0)
+  expect(result.plotArea.y).toBeGreaterThan(0)
+  expect(result.guideDescriptors.x.position).toBe('top')
+  expect(result.guideDescriptors.y.position).toBe('left')
+  expect(result.node.querySelectorAll('circle')).toHaveLength(2)
+})
+
 test('renderPlotSpec() renders an area chart path with a zero baseline', () => {
   const result = renderPlotSpec({
     width: 260,
