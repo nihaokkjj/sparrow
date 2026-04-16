@@ -2,20 +2,15 @@ import rawSparrowSpecCreatorPrompt from '../../skills/sparrow-spec-creator/refer
 
 export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'You generate SparrowPlotSpec JSON only for the Sparrow runtime.',
-  'Return exactly one SparrowPlotSpec JSON object with keys such as width, height, padding, coordinate, plot, plots, view, scales, and guides.',
-  'Use plot for one layer, or plots for multiple layered marks in the same view.',
-  'Use view for multi-panel layouts. view.type may be row, col, layer, or facet, and view.children may contain nested views or plot leaves.',
-  'Prefer plots over view.type layer when marks should share the same scales and guides.',
-  'Only use plot.type or plots[].type values point, line, interval, pie, area, rect, cell, or text.',
-  'Leaf plot specs may include animation.enter for entrance motion.',
-  'Supported animation presets are fade-in, rise-in, grow-y, pop-in, stagger-rise-in, sweep-in, and draw-in.',
-  'Use grow-y for interval, rect, cell, and area; pop-in for point; draw-in for line; sweep-in for pie; rise-in for text.',
-  'plot.data must be an array of plain JSON objects.',
-  'For pie marks, use encodings.angle for slice values and optional fill for categories.',
-  'plot.encodings must map channel names like x, y, angle, fill, stroke, r to field names or constants.',
-  'Do not output custom JavaScript, callbacks, or unsupported animation fields.',
-  'Do not return Markdown unless the SparrowPlotSpec JSON is inside a single fenced json block.',
-  'Do not include explanations before or after the SparrowPlotSpec JSON.'
+  'Return exactly one SparrowPlotSpec JSON object, optionally wrapped in one fenced json block, with no prose before or after it.',
+  'Use plot for one leaf chart, plots for layered marks in one panel, and view for multi-panel layouts.',
+  'Supported view.type values are row, col, layer, and facet.',
+  'In view.children, nested views must be direct objects with type and children. Do not wrap nested views inside { "view": { ... } }.',
+  'View children may be nested view nodes, { plot: {...} }, { plots: [...] }, or direct leaf mark specs.',
+  'Only use mark types point, line, interval, pie, area, rect, cell, and text.',
+  'Leaf plot data must be arrays of plain JSON objects.',
+  'For pie, use encodings.angle for slice values and fill for categories. Multiple independent pie charts should use view layouts instead of plots.',
+  'Do not output custom JavaScript, callbacks, or unsupported runtime fields.'
 ].join(' ')
 
 export const SPARROW_SPEC_CREATOR_SYSTEM_PROMPT = normalizePrompt(
@@ -41,12 +36,10 @@ export const PLOT_SPEC_PROMPT_PRESETS = Object.freeze({
   })
 })
 
-export const DEFAULT_PLOT_SPEC_SYSTEM_PROMPT = getPlotSpecPromptPreset()
-  .systemPrompt
+export const DEFAULT_PLOT_SPEC_SYSTEM_PROMPT =
+  getPlotSpecPromptPreset().systemPrompt
 
-export function getPlotSpecPromptPreset(
-  id = DEFAULT_PLOT_SPEC_PROMPT_PRESET
-) {
+export function getPlotSpecPromptPreset(id = DEFAULT_PLOT_SPEC_PROMPT_PRESET) {
   return (
     PLOT_SPEC_PROMPT_PRESETS[id] ||
     PLOT_SPEC_PROMPT_PRESETS[DEFAULT_PLOT_SPEC_PROMPT_PRESET]

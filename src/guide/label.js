@@ -1,7 +1,7 @@
 export function labelLeftUp(renderer, label, tick, { fontSize }) {
   const { x, y } = tick
   renderer.text({
-    text: `→ ${label}`,
+    text: `-> ${label}`,
     x,
     y,
     fontSize,
@@ -14,7 +14,7 @@ export function labelLeftUp(renderer, label, tick, { fontSize }) {
 export function labelLeftDown(renderer, label, tick, { fontSize }) {
   const { x, y } = tick
   renderer.text({
-    text: `→ ${label}`,
+    text: `-> ${label}`,
     x,
     y,
     fontSize,
@@ -24,11 +24,39 @@ export function labelLeftDown(renderer, label, tick, { fontSize }) {
   })
 }
 
+export function labelRightUp(renderer, label, tick, { fontSize }) {
+  const { x, y } = tick
+  renderer.text({
+    text: `${label} ->`,
+    x,
+    y,
+    fontSize,
+    textAnchor: 'start',
+    dy: '-1em',
+    dx: '1em',
+    class: 'label'
+  })
+}
+
+export function labelRightDown(renderer, label, tick, { fontSize }) {
+  const { x, y } = tick
+  renderer.text({
+    text: `${label} ->`,
+    x,
+    y,
+    fontSize,
+    textAnchor: 'start',
+    dy: '2em',
+    dx: '1em',
+    class: 'label'
+  })
+}
+
 export function labelBottomRight(renderer, label, tick, { fontSize, tickLength }) {
   const { x, y } = tick
   const ty = y + tickLength
   renderer.text({
-    text: `${label} →`,
+    text: `${label} ->`,
     x,
     y: ty,
     fontSize,
@@ -42,7 +70,7 @@ export function labelTopRight(renderer, label, tick, { fontSize, tickLength }) {
   const { x, y } = tick
   const ty = y - tickLength
   renderer.text({
-    text: `${label} →`,
+    text: `${label} ->`,
     x,
     y: ty,
     fontSize,

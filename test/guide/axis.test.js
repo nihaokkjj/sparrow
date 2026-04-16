@@ -63,3 +63,44 @@ test('axisY() renders cartesian ticks, grid, and label', () => {
   expect(texts.some((text) => text?.includes('Sales'))).toBe(true)
   expect(texts.some((text) => text === '0' || text === '50' || text === '100')).toBe(true)
 })
+
+test('axisX() supports a top position in cartesian coordinates', () => {
+  const renderer = createRenderer(240, 160)
+  const coordinate = createCartesianCoordinate()
+  const scale = createBand({
+    domain: ['Jan', 'Feb', 'Mar'],
+    range: [0, 1],
+    padding: 0.1
+  })
+
+  axisX(renderer, scale, coordinate, {
+    domain: ['Jan', 'Feb', 'Mar'],
+    label: 'Month',
+    position: 'top'
+  })
+
+  const firstTick = renderer.node().querySelector('line.tick')
+  expect(Number(firstTick?.getAttribute('y2'))).toBeLessThan(
+    Number(firstTick?.getAttribute('y1'))
+  )
+})
+
+test('axisY() supports a right position in cartesian coordinates', () => {
+  const renderer = createRenderer(240, 160)
+  const coordinate = createCartesianCoordinate()
+  const scale = createLinear({
+    domain: [0, 100],
+    range: [1, 0]
+  })
+
+  axisY(renderer, scale, coordinate, {
+    label: 'Sales',
+    tickCount: 3,
+    position: 'right'
+  })
+
+  const firstTick = renderer.node().querySelector('line.tick')
+  expect(Number(firstTick?.getAttribute('x2'))).toBeGreaterThan(
+    Number(firstTick?.getAttribute('x1'))
+  )
+})

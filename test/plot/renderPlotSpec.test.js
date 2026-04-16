@@ -189,6 +189,33 @@ test('renderPlotSpec() renders a line chart path from wrapped plot specs', () =>
   ).toBe(true)
 })
 
+test('renderPlotSpec() normalizes guide positions for axes and legends', () => {
+  const result = renderPlotSpec({
+    width: 320,
+    height: 220,
+    data: [
+      { x: 0.2, y: 0.35, fill: '#1677ff' },
+      { x: 0.7, y: 0.65, fill: '#13c2c2' }
+    ],
+    type: 'point',
+    encodings: {
+      x: 'x',
+      y: 'y',
+      fill: 'fill'
+    },
+    guides: {
+      x: { position: 'top' },
+      y: { position: 'right' },
+      color: { position: 'bottom', label: 'Group' }
+    }
+  })
+
+  expect(result.guideDescriptors.x.position).toBe('top')
+  expect(result.guideDescriptors.y.position).toBe('right')
+  expect(result.guideDescriptors.color.position).toBe('bottom')
+  expect(result.guideDescriptors.color.y).toBeGreaterThan(result.coordinate.center()[1])
+})
+
 test('renderPlotSpec() renders an area chart path with a zero baseline', () => {
   const result = renderPlotSpec({
     width: 260,

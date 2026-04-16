@@ -78,11 +78,17 @@ export function renderPlotSpec(input, options = {}) {
   const guideDescriptors = inferGuides(
     scaleDescriptors,
     {
-      x: spec.plotArea.width,
-      y: spec.plotArea.y,
-      paddingLeft: spec.plotArea.x
+      frameX: spec.plotArea.x,
+      frameY: spec.plotArea.y,
+      frameWidth: spec.plotArea.width,
+      frameHeight: spec.plotArea.height,
+      outerWidth: spec.width,
+      outerHeight: spec.height,
+      isPolar: coordinate.isPolar?.() === true,
+      isTranspose: coordinate.isTranspose?.() === true
     },
-    spec.guides
+    spec.guides,
+    options.aiOptions
   )
 
   for (const [name, descriptor] of Object.entries(guideDescriptors)) {
@@ -171,9 +177,7 @@ function normalizePlots(input) {
     throw new Error('renderPlotSpec requires at least one plot.')
   }
 
-  return plots.map((plot) =>
-    normalizePlot(plot, defaultData, defaultAnimation)
-  )
+  return plots.map((plot) => normalizePlot(plot, defaultData, defaultAnimation))
 }
 
 function normalizePlot(plot, defaultData, defaultAnimation) {
@@ -299,16 +303,8 @@ function normalizeCoordinate(coordinate, { hasPiePlot = false } = {}) {
 }
 
 function normalizePieEncodings(encodings = {}) {
-  const {
-    angle,
-    value,
-    theta,
-    radius,
-    r,
-    innerRadius,
-    outerRadius,
-    ...rest
-  } = encodings
+  const { angle, value, theta, radius, r, innerRadius, outerRadius, ...rest } =
+    encodings
 
   return {
     ...rest,

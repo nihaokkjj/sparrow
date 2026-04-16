@@ -37,6 +37,10 @@ test('createPlotSpecMessages() instructs the model to output SparrowPlotSpec JSO
   expect(messages[0].content).toContain('grow-y')
   expect(messages[0].content).toContain('sweep-in')
   expect(messages[0].content).toContain('draw-in')
+  expect(messages[0].content).toContain('guides.x.position')
+  expect(messages[0].content).toContain('guides.color.position')
+  expect(messages[0].content).toContain('multiple independent pie charts')
+  expect(messages[0].content).toContain('Do not wrap nested views')
 })
 
 test('parsePlotSpecResponse() extracts JSON from fenced model output', () => {

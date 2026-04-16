@@ -1,4 +1,4 @@
-﻿import {
+import {
   DEFAULT_PLOT_SPEC_PROMPT_PRESET,
   buildProviderRequestConfig,
   createMockPlotProvider,
@@ -14,6 +14,8 @@
 
 const form = document.getElementById('controls')
 const promptInput = document.getElementById('prompt')
+const canvasWidthInput = document.getElementById('canvasWidth')
+const canvasHeightInput = document.getElementById('canvasHeight')
 const promptPresetSelect = document.getElementById('promptPreset')
 const promptPresetHint = document.getElementById('prompt-preset-hint')
 const providerSelect = document.getElementById('provider')
@@ -320,16 +322,37 @@ form.addEventListener('submit', async (event) => {
     '<div class="preview-empty">Streaming and parsing…</div>'
 
   try {
+    const canvasWidth = parseInt(canvasWidthInput.value) || 640
+    const canvasHeight = parseInt(canvasHeightInput.value) || 480
+
+    previewNode.style.width = canvasWidth + 'px'
+    previewNode.style.height = canvasHeight + 'px'
+    previewNode.style.margin = '0 auto'
+
+    const promptWithSize = `画布尺寸: ${canvasWidth}x${canvasHeight}。${prompt}`
+
     const result = await streamPlotSpec({
-      prompt,
+      prompt: promptWithSize,
       provider,
       buffer,
       signal: controller.signal,
       render(spec, renderOptions) {
-        return renderAISpec(getEffectiveSpec(spec), renderOptions)
+        const effectiveSpec = getEffectiveSpec(spec)
+        const specWithSize = {
+          ...effectiveSpec,
+          width: canvasWidth,
+          height: canvasHeight
+        }
+        return renderAISpec(specWithSize, {
+          ...renderOptions,
+          width: canvasWidth,
+          height: canvasHeight
+        })
       },
       renderOptions: {
-        container: previewNode
+        container: previewNode,
+        width: canvasWidth,
+        height: canvasHeight
       },
       onChunk(chunk, text) {
         streamLogNode.textContent = text

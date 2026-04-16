@@ -73,6 +73,31 @@ export function ticksLeft(renderer, ticks, { tickLength, fontSize }) {
   }
 }
 
+export function ticksRight(renderer, ticks, { tickLength, fontSize }) {
+  for (const { x, y, text } of ticks) {
+    const x2 = x + tickLength
+    const y2 = y
+    renderer.line({
+      x1: x,
+      y1: y,
+      x2,
+      y2,
+      stroke: 'currentColor',
+      class: 'tick'
+    })
+    renderer.text({
+      text,
+      fontSize,
+      x: x2,
+      y,
+      textAnchor: 'start',
+      dy: '0.5em',
+      dx: '0.5em',
+      class: 'text'
+    })
+  }
+}
+
 export function ticksCircular(
   renderer,
   ticks,

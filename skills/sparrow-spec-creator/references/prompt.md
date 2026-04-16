@@ -102,6 +102,9 @@ Only use these `view.type` values:
 - `layer`
 - `facet`
 
+- In `view.children`, nested views must be written directly as objects with `type` and `children`.
+- Do not wrap nested views in an extra `{ "view": { ... } }` object.
+
 ### Data
 
 - `plot.data` must be an array of plain JSON objects.
@@ -113,6 +116,9 @@ Only use these `view.type` values:
 - `encodings` should map channels to field names or constants.
 - Prefer common channels such as `x`, `y`, `angle`, `fill`, `stroke`, `r`, and `text`.
 - For `pie`, use `encodings.angle` for slice values and `fill` for categories.
+- For multiple independent pie charts, use `view` instead of `plots`.
+- Use `row` or `col` when the number of pie charts is fixed.
+- Use `facet` when the same pie chart should repeat over grouped data.
 - Keep channel names simple and consistent with the chosen mark.
 
 ### Animation
@@ -124,13 +130,24 @@ Only use these `view.type` values:
 - You may add `duration`, `ease`, `delay`, and `stagger`.
 - Do not output JavaScript callbacks or unsupported animation fields.
 
+### Guides
+
+- Guide options may include `position`.
+- Use `guides.x.position` only as `top` or `bottom`.
+- Use `guides.y.position` only as `left` or `right`.
+- Use `guides.color.position` only as `top`, `right`, `bottom`, or `left`.
+- Prefer default guide positions unless the user asks to move axes or legends.
+- Use explicit `guides.color.x` or `guides.color.y` only when the user asks for precise legend placement.
+
 ## Layout rules
 
 - Use `plot` for one mark in one view.
 - Use `plots` when multiple marks should share the same scales and guides.
 - Use `view` only when panels need separate layout regions.
+- In `view.children`, use one of these child shapes directly: a nested view node, `{ "plot": ... }`, `{ "plots": [...] }`, or a direct leaf mark spec.
 - Prefer `plots` over `view.type = "layer"` when the chart is just a layered composition in one panel.
 - Use `facet` when the same child chart should repeat over grouped data.
+- Do not use `plots` to place multiple separate pie charts side by side; that should be a `view` layout.
 
 ## Conservative defaults
 
@@ -160,4 +177,5 @@ Before finishing, confirm:
 - every plot uses a supported mark type
 - `data` is an array wherever a leaf plot needs it
 - `view.type` is one of `row`, `col`, `layer`, or `facet`
+- guide positions use only the allowed values for x, y, and color
 - you did not add prose outside the JSON
