@@ -33,6 +33,10 @@ test('createPlotSpecMessages() instructs the model to output SparrowPlotSpec JSO
   expect(messages[0].content).toContain('Use `plots` when multiple marks')
   expect(messages[0].content).toContain('Only use these `view.type` values')
   expect(messages[0].content).toContain('facet')
+  expect(messages[0].content).toContain('animation.enter')
+  expect(messages[0].content).toContain('grow-y')
+  expect(messages[0].content).toContain('sweep-in')
+  expect(messages[0].content).toContain('draw-in')
 })
 
 test('parsePlotSpecResponse() extracts JSON from fenced model output', () => {

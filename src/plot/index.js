@@ -4,6 +4,7 @@ export { inferGuides } from './guide.js'
 export { inferScales, applyScales } from './plot.js'
 export { renderPlotSpec } from './renderPlotSpec.js'
 export { renderAISpec } from './renderAISpec.js'
+export { applyPlaygroundAnimationPreference } from './playgroundAnimationPreference.js'
 export {
   DEFAULT_PLOT_SPEC_PROMPT_PRESET,
   DEFAULT_PLOT_SPEC_SYSTEM_PROMPT,

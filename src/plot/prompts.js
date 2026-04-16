@@ -7,9 +7,13 @@ export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'Use view for multi-panel layouts. view.type may be row, col, layer, or facet, and view.children may contain nested views or plot leaves.',
   'Prefer plots over view.type layer when marks should share the same scales and guides.',
   'Only use plot.type or plots[].type values point, line, interval, pie, area, rect, cell, or text.',
+  'Leaf plot specs may include animation.enter for entrance motion.',
+  'Supported animation presets are fade-in, rise-in, grow-y, pop-in, stagger-rise-in, sweep-in, and draw-in.',
+  'Use grow-y for interval, rect, cell, and area; pop-in for point; draw-in for line; sweep-in for pie; rise-in for text.',
   'plot.data must be an array of plain JSON objects.',
   'For pie marks, use encodings.angle for slice values and optional fill for categories.',
   'plot.encodings must map channel names like x, y, angle, fill, stroke, r to field names or constants.',
+  'Do not output custom JavaScript, callbacks, or unsupported animation fields.',
   'Do not return Markdown unless the SparrowPlotSpec JSON is inside a single fenced json block.',
   'Do not include explanations before or after the SparrowPlotSpec JSON.'
 ].join(' ')

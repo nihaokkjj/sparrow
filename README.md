@@ -280,6 +280,13 @@ layouts backed by Sparrow views (`row`, `col`, `layer`, `facet`). Prefer
 `plots` over `view.type = "layer"` when marks should share the same scales and
 guides. Supported marks include `point`, `line`, `interval`, `pie`, `area`,
 `rect`, `cell`, and `text`. For `pie`, use `encodings.angle` for slice values.
+Leaf plot specs may also include `animation.enter` with presets such as
+`fade-in`, `rise-in`, `grow-y`, `pop-in`, `stagger-rise-in`, `sweep-in`, and `draw-in`.
+
+Both `renderPlotSpec()` and `renderAISpec()` return `playAnimations()` and
+`stopAnimations()` helpers. When the SVG is mounted during rendering, entrance
+animations autoplay; otherwise you can mount the node first and call
+`playAnimations()` manually.
 
 Minimal `view` example:
 

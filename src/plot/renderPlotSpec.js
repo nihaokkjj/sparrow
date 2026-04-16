@@ -1,5 +1,6 @@
 import { createRenderer } from '../renderer/renderer.js'
 import { createCoordinate } from '../coordinate/coordinate.js'
+import { createPlotAnimationPlayer, normalizeAnimation } from './animation.js'
 import { create } from './create.js'
 import { initialize } from './encoding.js'
 import { inferGuides } from './guide.js'
@@ -64,11 +65,15 @@ export function renderPlotSpec(input, options = {}) {
       ...spec.plots[index],
       ...plot,
       values,
-      marks
+      marks,
+      coordinate
     }
   })
 
   const marks = renderedPlots.flatMap((plot) => plot.marks)
+  const animationPlayers = renderedPlots.map((plot) =>
+    createPlotAnimationPlayer(renderer, plot, plot.marks)
+  )
 
   const guideDescriptors = inferGuides(
     scaleDescriptors,
@@ -88,6 +93,15 @@ export function renderPlotSpec(input, options = {}) {
   const node = renderer.node()
   mountNode(node, spec.container, spec.clear)
 
+  const playAnimations = () =>
+    animationPlayers.flatMap((player) => player.play())
+  const stopAnimations = () =>
+    animationPlayers.forEach((player) => player.stop())
+
+  if (options.autoplay !== false && node.isConnected) {
+    playAnimations()
+  }
+
   return {
     renderer,
     node,
@@ -96,6 +110,8 @@ export function renderPlotSpec(input, options = {}) {
     scaleDescriptors,
     guideDescriptors,
     coordinate,
+    playAnimations,
+    stopAnimations,
     plot: renderedPlots[0],
     plots: renderedPlots
   }
@@ -144,6 +160,7 @@ function normalizeSpec(input, options) {
 
 function normalizePlots(input) {
   const defaultData = Array.isArray(input.data) ? input.data : undefined
+  const defaultAnimation = input.animation
   const plots = Array.isArray(input.plots)
     ? input.plots
     : Array.isArray(input.plot)
@@ -154,17 +171,20 @@ function normalizePlots(input) {
     throw new Error('renderPlotSpec requires at least one plot.')
   }
 
-  return plots.map((plot) => normalizePlot(plot, defaultData))
+  return plots.map((plot) =>
+    normalizePlot(plot, defaultData, defaultAnimation)
+  )
 }
 
-function normalizePlot(plot, defaultData) {
+function normalizePlot(plot, defaultData, defaultAnimation) {
   const {
     data = defaultData,
     type,
     encodings = {},
     statistics = [],
     transforms = [],
-    styles = {}
+    styles = {},
+    animation = defaultAnimation
   } = plot || {}
 
   const normalizedEncodings =
@@ -186,7 +206,8 @@ function normalizePlot(plot, defaultData) {
     encodings: normalizedEncodings,
     statistics,
     transforms,
-    styles
+    styles,
+    animation: normalizeAnimation(animation)
   }
 }
 

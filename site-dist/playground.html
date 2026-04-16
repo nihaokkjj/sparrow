@@ -195,6 +195,33 @@
         gap: 12px;
       }
 
+      .toggle-field {
+        gap: 10px;
+        margin-top: 4px;
+      }
+
+      .toggle-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 14px;
+      }
+
+      .toggle-control input[type='checkbox'] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        accent-color: #5b6df6;
+        box-shadow: none;
+      }
+
+      .toggle-control span {
+        line-height: 1.4;
+      }
+
       .button-row {
         display: flex;
         gap: 10px;
@@ -350,7 +377,7 @@
       }
     </style>
     <script type="module" crossorigin src="/assets/modulepreload-polyfill-Cf3xff8G.js"></script>
-    <script type="module" crossorigin src="/assets/playground-page-DsbroY03.js"></script>
+    <script type="module" crossorigin src="/assets/playground-page-vYo81rm6.js"></script>
   </head>
   <body>
     <div class="shell">
@@ -380,6 +407,12 @@
             <textarea id="prompt" name="prompt">
 做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea
             >
+          </div>
+
+          <div class="field">
+            <label for="promptPreset">Skill / Mode</label>
+            <select id="promptPreset" name="promptPreset"></select>
+            <div class="hint" id="prompt-preset-hint"></div>
           </div>
 
           <div class="field">
@@ -431,6 +464,20 @@
                   autocomplete="off"
                 />
               </div>
+            </div>
+          </div>
+
+          <div class="field toggle-field">
+            <label class="toggle-control" for="animateRender">
+              <input
+                id="animateRender"
+                name="animateRender"
+                type="checkbox"
+              />
+              <span>生成后播放入场动画</span>
+            </label>
+            <div class="hint">
+              勾选后，前端会在渲染前为图表补上第一版入场动画；不勾选则始终静态绘制。
             </div>
           </div>
 

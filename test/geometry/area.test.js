@@ -27,6 +27,20 @@ test('area() renders a closed path from y to a y1 baseline', () => {
     fill: '#93c5fd',
     stroke: 'none'
   })
+  expect(nodes[0].getAttribute('data-sparrow-area-top')).toBe(
+    JSON.stringify([
+      [10, 20],
+      [40, 10],
+      [70, 30]
+    ])
+  )
+  expect(nodes[0].getAttribute('data-sparrow-area-bottom')).toBe(
+    JSON.stringify([
+      [10, 90],
+      [40, 90],
+      [70, 90]
+    ])
+  )
 })
 
 test('area() renders one path per z group', () => {

@@ -1,5 +1,6 @@
 import { createChannel, createChannels } from './channel.js'
 import { channelStyles } from './style.js'
+import { areaPath } from './areaPath.js'
 import { defined, group } from '../utils'
 
 export function area(renderer, I, scales, channels, directStyles, coordinate) {
@@ -19,25 +20,19 @@ export function area(renderer, I, scales, channels, directStyles, coordinate) {
 
     if (points.length < 2) return []
 
-    const top = points.map(({ top: [x, y] }, index) => [
-      index === 0 ? 'M' : 'L',
-      x,
-      y
-    ])
-    const bottom = points
-      .slice()
-      .reverse()
-      .map(({ bottom: [x, y] }) => ['L', x, y])
     const [{ index }] = points
+    const topPoints = points.map(({ top }) => top)
+    const bottomPoints = points.map(({ bottom }) => bottom)
 
-    return [
-      renderer.path({
-        stroke: 'none',
-        ...directStyles,
-        ...channelStyles(index, channels),
-        d: [...top, ...bottom, ['Z']]
-      })
-    ]
+    const mark = renderer.path({
+      stroke: 'none',
+      ...directStyles,
+      ...channelStyles(index, channels),
+      d: areaPath(topPoints, bottomPoints)
+    })
+    annotateArea(mark, topPoints, bottomPoints)
+
+    return [mark]
   })
 }
 
@@ -47,3 +42,8 @@ area.channels = () =>
     y1: createChannel({ name: 'y1' }),
     z: createChannel({ name: 'z' })
   })
+
+function annotateArea(element, topPoints, bottomPoints) {
+  element.setAttribute('data-sparrow-area-top', JSON.stringify(topPoints))
+  element.setAttribute('data-sparrow-area-bottom', JSON.stringify(bottomPoints))
+}

@@ -7,6 +7,8 @@
   getDefaultPlaygroundProviderSettings,
   getPlotSpecPromptPreset,
   listPlotSpecPromptPresets,
+  renderAISpec,
+  applyPlaygroundAnimationPreference,
   streamPlotSpec
 } from './plot/index.js'
 
@@ -21,8 +23,10 @@ const targetBaseURLInput = document.getElementById('targetBaseURL')
 const connectionModeHint = document.getElementById('connection-mode-hint')
 const modelInput = document.getElementById('model')
 const apiKeyInput = document.getElementById('apiKey')
+const animateRenderInput = document.getElementById('animateRender')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
+const rerenderButton = document.getElementById('rerender')
 const statusNode = document.getElementById('status')
 const summaryNode = document.getElementById('summary')
 const streamLogNode = document.getElementById('stream-log')
@@ -33,6 +37,16 @@ const providerSettingsKey = 'sparrow.playground.provider-settings'
 const defaultProviderSettings = getDefaultPlaygroundProviderSettings(env)
 
 let controller = null
+let lastRenderedSpec = null
+let lastRenderResult = null
+
+function cloneSpec(spec) {
+  if (spec === null || spec === undefined) return spec
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(spec)
+  }
+  return JSON.parse(JSON.stringify(spec))
+}
 
 function getSpecPlots(spec) {
   const plots = []
@@ -120,9 +134,55 @@ function persistProviderSettings() {
       promptPreset: promptPresetSelect.value,
       connectionMode: connectionModeSelect.value,
       targetBaseURL: targetBaseURLInput.value.trim(),
-      model: modelInput.value.trim()
+      model: modelInput.value.trim(),
+      animateRender: animateRenderInput.checked
     })
   )
+}
+
+function getEffectiveSpec(spec) {
+  return applyPlaygroundAnimationPreference(spec, {
+    enabled: animateRenderInput.checked
+  })
+}
+
+function syncRerenderButton() {
+  rerenderButton.disabled = !lastRenderedSpec
+}
+
+function rememberRenderedSpec(spec) {
+  lastRenderedSpec = cloneSpec(spec)
+  syncRerenderButton()
+}
+
+function clearRenderedSpec() {
+  lastRenderedSpec = null
+  lastRenderResult = null
+  syncRerenderButton()
+}
+
+function renderStoredSpec() {
+  if (!lastRenderedSpec) {
+    statusNode.textContent = 'No JSON spec to re-render yet.'
+    statusNode.className = 'status'
+    return
+  }
+
+  try {
+    lastRenderResult?.stopAnimations?.()
+    lastRenderResult = renderAISpec(cloneSpec(lastRenderedSpec), {
+      container: previewNode
+    })
+
+    const { typeLabel, layoutLabel } = summarizeSpec(lastRenderedSpec)
+    statusNode.textContent = layoutLabel
+      ? `Re-rendered ${layoutLabel} view with ${typeLabel} marks from the existing JSON object.`
+      : `Re-rendered ${typeLabel} chart from the existing JSON object.`
+    statusNode.className = 'status ok'
+  } catch (error) {
+    statusNode.textContent = error?.message || 'Re-render failed.'
+    statusNode.className = 'status error'
+  }
 }
 
 function syncConnectionModeUI() {
@@ -167,6 +227,7 @@ function initializeProviderSettings() {
       ? stored.targetBaseURL
       : defaultProviderSettings.targetBaseURL
   modelInput.value = stored.model || defaultProviderSettings.model
+  animateRenderInput.checked = stored.animateRender === true
   syncPromptPresetUI()
   syncConnectionModeUI()
 }
@@ -193,10 +254,13 @@ connectionModeSelect.addEventListener('change', () => {
 
 targetBaseURLInput.addEventListener('input', persistProviderSettings)
 modelInput.addEventListener('input', persistProviderSettings)
+animateRenderInput.addEventListener('change', persistProviderSettings)
 
 stopButton.addEventListener('click', () => {
   controller?.abort()
 })
+
+rerenderButton.addEventListener('click', renderStoredSpec)
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -246,6 +310,7 @@ form.addEventListener('submit', async (event) => {
 
   runButton.disabled = true
   stopButton.disabled = false
+  clearRenderedSpec()
   statusNode.textContent = 'Streaming model output…'
   statusNode.className = 'status live'
   summaryNode.textContent = 'Waiting for JSON'
@@ -260,6 +325,9 @@ form.addEventListener('submit', async (event) => {
       provider,
       buffer,
       signal: controller.signal,
+      render(spec, renderOptions) {
+        return renderAISpec(getEffectiveSpec(spec), renderOptions)
+      },
       renderOptions: {
         container: previewNode
       },
@@ -267,25 +335,36 @@ form.addEventListener('submit', async (event) => {
         streamLogNode.textContent = text
       },
       onSpec(spec) {
-        specJsonNode.textContent = JSON.stringify(spec, null, 2)
-        const { typeLabel, count, layoutLabel } = summarizeSpec(spec)
+        const effectiveSpec = getEffectiveSpec(spec)
+        rememberRenderedSpec(effectiveSpec)
+        specJsonNode.textContent = JSON.stringify(effectiveSpec, null, 2)
+        const { typeLabel, count, layoutLabel } = summarizeSpec(effectiveSpec)
         summaryNode.textContent = layoutLabel
           ? `${layoutLabel} view · ${typeLabel} · ${count} rows`
           : `${typeLabel} · ${count} rows`
       },
       onRender(result, spec) {
-        const { typeLabel, layoutLabel } = summarizeSpec(spec)
+        lastRenderResult = result
+        const effectiveSpec = getEffectiveSpec(spec)
+        const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
+        const animationSuffix = animateRenderInput.checked
+          ? ' with animation'
+          : ''
         statusNode.textContent = layoutLabel
-          ? `Rendered ${layoutLabel} view with ${typeLabel} marks from the latest valid JSON object.`
-          : `Rendered ${typeLabel} chart from the latest valid JSON object.`
+          ? `Rendered ${layoutLabel} view with ${typeLabel} marks${animationSuffix} from the latest valid JSON object.`
+          : `Rendered ${typeLabel} chart${animationSuffix} from the latest valid JSON object.`
         statusNode.className = 'status ok'
       }
     })
 
-    const { typeLabel, layoutLabel } = summarizeSpec(result.spec)
+    const effectiveSpec = getEffectiveSpec(result.spec)
+    const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
+    const animationSuffix = animateRenderInput.checked
+      ? ' 并播放了入场动画'
+      : ''
     statusNode.textContent = layoutLabel
-      ? `Done. Parsed and rendered ${layoutLabel} view with ${typeLabel}.`
-      : `Done. Parsed and rendered ${typeLabel}.`
+      ? `Done. Parsed and rendered ${layoutLabel} view with ${typeLabel}${animationSuffix}.`
+      : `Done. Parsed and rendered ${typeLabel}${animationSuffix}.`
     statusNode.className = 'status ok'
   } catch (error) {
     if (error?.name === 'AbortError') {

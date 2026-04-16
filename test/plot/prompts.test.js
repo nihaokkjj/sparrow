@@ -16,6 +16,7 @@ test('default plot spec preset resolves to sparrow-spec-creator skill prompt', (
   expect(preset.systemPrompt).toContain('SparrowPlotSpec generation rules')
   expect(preset.systemPrompt).toContain('Use `plots` when multiple marks')
   expect(preset.systemPrompt).toContain('facet')
+  expect(preset.systemPrompt).toContain('draw-in')
 })
 
 test('listPlotSpecPromptPresets() includes minimal and skill-backed presets', () => {

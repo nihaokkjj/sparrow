@@ -115,6 +115,15 @@ Only use these `view.type` values:
 - For `pie`, use `encodings.angle` for slice values and `fill` for categories.
 - Keep channel names simple and consistent with the chosen mark.
 
+### Animation
+
+- Animation is optional and belongs on leaf plot specs.
+- Use `animation.enter` for first-render entrance motion.
+- Supported presets are `fade-in`, `rise-in`, `grow-y`, `pop-in`, `stagger-rise-in`, `sweep-in`, and `draw-in`.
+- Use `grow-y` for `interval`, `rect`, `cell`, and `area`; `pop-in` for `point`; `draw-in` for `line`; `sweep-in` for `pie`; `rise-in` for `text`.
+- You may add `duration`, `ease`, `delay`, and `stagger`.
+- Do not output JavaScript callbacks or unsupported animation fields.
+
 ## Layout rules
 
 - Use `plot` for one mark in one view.

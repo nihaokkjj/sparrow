@@ -48,12 +48,23 @@ export function renderAISpec(input, options = {}) {
   const node = renderer.node()
   mountNode(node, spec.container, spec.clear)
 
+  const playAnimations = () =>
+    renderedViews.flatMap(({ result }) => result.playAnimations?.() || [])
+  const stopAnimations = () =>
+    renderedViews.forEach(({ result }) => result.stopAnimations?.())
+
+  if (options.autoplay !== false && node.isConnected) {
+    playAnimations()
+  }
+
   return {
     renderer,
     node,
     marks: renderedViews.flatMap(({ result }) => result.marks || []),
     plots: renderedViews.flatMap(({ result }) => result.plots || []),
     plot: renderedViews[0]?.result?.plot ?? null,
+    playAnimations,
+    stopAnimations,
     views: renderedViews,
     view: spec.view
   }
@@ -115,7 +126,8 @@ function renderLeafNode(node, frame, context) {
   const result = renderPlotSpec(spec, {
     renderer: context.renderer,
     clear: false,
-    frame
+    frame,
+    autoplay: false
   })
 
   context.renderedViews.push({

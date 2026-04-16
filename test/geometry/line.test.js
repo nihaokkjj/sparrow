@@ -33,6 +33,10 @@ test('line() renders one path per series and applies channel stroke styles', () 
     stroke: '#1677ff',
     'stroke-width': '2'
   })
+  expect(Number(nodes[0].getAttribute('data-sparrow-path-length'))).toBeCloseTo(
+    Math.hypot(10, 10),
+    5
+  )
   expect(
     getAttributes(nodes[1], ['d', 'fill', 'stroke', 'stroke-width'])
   ).toEqual({
@@ -41,6 +45,10 @@ test('line() renders one path per series and applies channel stroke styles', () 
     stroke: '#fa541c',
     'stroke-width': '2'
   })
+  expect(Number(nodes[1].getAttribute('data-sparrow-path-length'))).toBeCloseTo(
+    Math.hypot(10, -5),
+    5
+  )
 })
 
 test('line() skips series with fewer than two defined points', () => {
