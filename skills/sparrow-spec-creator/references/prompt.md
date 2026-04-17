@@ -151,9 +151,13 @@ Only use these `view.type` values:
 
 - Animation is optional and belongs on leaf plot specs.
 - Use `animation.enter` for first-render entrance motion.
+- `animation.enter` may be a preset string such as `"sweep-in"` or an object such as `{ "preset": "sweep-in", "duration": 900, "ease": "easeOut" }`.
+- In object form, use `preset` as the field name. Do not use `type` inside `animation.enter`.
 - Supported presets are `fade-in`, `rise-in`, `grow-y`, `pop-in`, `stagger-rise-in`, `sweep-in`, and `draw-in`.
 - Use `grow-y` for `interval`, `rect`, `cell`, and `area`; `pop-in` for `point`; `draw-in` for `line`; `sweep-in` for `pie`; `rise-in` for `text`.
 - You may add `duration`, `ease`, `delay`, and `stagger`.
+- Supported `ease` values are `linear`, `easeIn`, `easeOut`, and `easeInOut`.
+- Do not use kebab-case ease names such as `ease-out`, `ease-in`, or `ease-in-out`.
 - Do not output JavaScript callbacks or unsupported animation fields.
 
 ### Guides

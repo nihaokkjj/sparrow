@@ -11,6 +11,7 @@ import {
   applyPlaygroundAnimationPreference,
   streamPlotSpec
 } from './plot/index.js'
+import { exportSpecAsPNG } from './playground/exportImage.js'
 
 const form = document.getElementById('controls')
 const promptInput = document.getElementById('prompt')
@@ -29,6 +30,7 @@ const animateRenderInput = document.getElementById('animateRender')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
 const rerenderButton = document.getElementById('rerender')
+const exportImageButton = document.getElementById('export-image')
 const statusNode = document.getElementById('status')
 const summaryNode = document.getElementById('summary')
 const streamLogNode = document.getElementById('stream-log')
@@ -41,6 +43,8 @@ const defaultProviderSettings = getDefaultPlaygroundProviderSettings(env)
 let controller = null
 let lastRenderedSpec = null
 let lastRenderResult = null
+let lastRenderedDimensions = null
+let isExportingImage = false
 
 function cloneSpec(spec) {
   if (spec === null || spec === undefined) return spec
@@ -148,19 +152,24 @@ function getEffectiveSpec(spec) {
   })
 }
 
-function syncRerenderButton() {
-  rerenderButton.disabled = !lastRenderedSpec
+function syncChartActionButtons() {
+  const hasRenderedSpec = Boolean(lastRenderedSpec)
+  rerenderButton.disabled = !hasRenderedSpec
+  exportImageButton.disabled = !hasRenderedSpec || isExportingImage
 }
 
-function rememberRenderedSpec(spec) {
+function rememberRenderedSpec(spec, dimensions) {
   lastRenderedSpec = cloneSpec(spec)
-  syncRerenderButton()
+  lastRenderedDimensions = dimensions ? { ...dimensions } : null
+  syncChartActionButtons()
 }
 
 function clearRenderedSpec() {
   lastRenderedSpec = null
   lastRenderResult = null
-  syncRerenderButton()
+  lastRenderedDimensions = null
+  isExportingImage = false
+  syncChartActionButtons()
 }
 
 function renderStoredSpec() {
@@ -173,7 +182,8 @@ function renderStoredSpec() {
   try {
     lastRenderResult?.stopAnimations?.()
     lastRenderResult = renderAISpec(cloneSpec(lastRenderedSpec), {
-      container: previewNode
+      container: previewNode,
+      ...(lastRenderedDimensions || {})
     })
 
     const { typeLabel, layoutLabel } = summarizeSpec(lastRenderedSpec)
@@ -185,6 +195,40 @@ function renderStoredSpec() {
     statusNode.textContent = error?.message || 'Re-render failed.'
     statusNode.className = 'status error'
   }
+}
+
+async function exportRenderedImage() {
+  if (!lastRenderedSpec) {
+    statusNode.textContent = 'No JSON spec to export yet.'
+    statusNode.className = 'status'
+    return
+  }
+
+  isExportingImage = true
+  syncChartActionButtons()
+  statusNode.textContent = 'Exporting PNG image…'
+  statusNode.className = 'status live'
+
+  try {
+    await exportSpecAsPNG(cloneSpec(lastRenderedSpec), {
+      ...(lastRenderedDimensions || {}),
+      filename: createExportFilename()
+    })
+
+    statusNode.textContent = 'Downloaded PNG image from the latest chart.'
+    statusNode.className = 'status ok'
+  } catch (error) {
+    statusNode.textContent = error?.message || 'PNG export failed.'
+    statusNode.className = 'status error'
+  } finally {
+    isExportingImage = false
+    syncChartActionButtons()
+  }
+}
+
+function createExportFilename() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return `sparrow-chart-${timestamp}.png`
 }
 
 function syncConnectionModeUI() {
@@ -263,6 +307,9 @@ stopButton.addEventListener('click', () => {
 })
 
 rerenderButton.addEventListener('click', renderStoredSpec)
+exportImageButton.addEventListener('click', () => {
+  void exportRenderedImage()
+})
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -359,7 +406,10 @@ form.addEventListener('submit', async (event) => {
       },
       onSpec(spec) {
         const effectiveSpec = getEffectiveSpec(spec)
-        rememberRenderedSpec(effectiveSpec)
+        rememberRenderedSpec(effectiveSpec, {
+          width: canvasWidth,
+          height: canvasHeight
+        })
         specJsonNode.textContent = JSON.stringify(effectiveSpec, null, 2)
         const { typeLabel, count, layoutLabel } = summarizeSpec(effectiveSpec)
         summaryNode.textContent = layoutLabel

@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
+import { normalizeAnimation } from '../../src/plot/animation.js'
 import { renderAISpec } from '../../src/plot/renderAISpec.js'
 import { renderPlotSpec } from '../../src/plot/renderPlotSpec.js'
 import { createDiv } from '../utils.js'
@@ -245,6 +246,46 @@ test('renderPlotSpec() grows area paths from the baseline', async () => {
 
   expect(mark.getAttribute('d')).not.toBe(initialPath)
   expect(mark.getAttribute('opacity')).toBe('1')
+})
+
+test('normalizeAnimation() accepts animation.enter.type as a preset alias', () => {
+  expect(
+    normalizeAnimation({
+      enter: {
+        type: 'sweep-in',
+        duration: 320
+      }
+    })
+  ).toEqual({
+    enter: {
+      preset: 'sweep-in',
+      duration: 320,
+      ease: 'easeOut',
+      delay: 0,
+      stagger: 0,
+      offset: 16
+    }
+  })
+})
+
+test('normalizeAnimation() normalizes kebab-case ease names', () => {
+  expect(
+    normalizeAnimation({
+      enter: {
+        preset: 'draw-in',
+        ease: 'ease-out'
+      }
+    })
+  ).toEqual({
+    enter: {
+      preset: 'draw-in',
+      duration: 600,
+      ease: 'easeOut',
+      delay: 0,
+      stagger: 0,
+      offset: 16
+    }
+  })
 })
 
 function installAnimationClock() {

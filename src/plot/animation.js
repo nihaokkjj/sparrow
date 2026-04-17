@@ -109,7 +109,7 @@ function normalizeEnterAnimation(enter) {
     throw new Error('Plot animation.enter must be a string or object.')
   }
 
-  const { preset } = enter
+  const preset = normalizeEnterPreset(enter)
   if (!SUPPORTED_ENTER_PRESETS.has(preset)) {
     throw new Error(
       `Unsupported animation preset: "${preset}". Supported presets are fade-in, rise-in, grow-y, pop-in, stagger-rise-in, sweep-in, and draw-in.`
@@ -129,7 +129,34 @@ function normalizeEnterAnimation(enter) {
   }
 }
 
+function normalizeEnterPreset(enter) {
+  const preset = enter.preset ?? enter.type
+  return typeof preset === 'string' ? preset.trim() : preset
+}
+
 function normalizeEase(value) {
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    if (SUPPORTED_EASES.has(normalized)) return normalized
+
+    switch (normalized.toLowerCase()) {
+      case 'ease-in':
+      case 'ease_in':
+      case 'easein':
+        return 'easeIn'
+      case 'ease-out':
+      case 'ease_out':
+      case 'easeout':
+        return 'easeOut'
+      case 'ease-in-out':
+      case 'ease_in_out':
+      case 'easeinout':
+        return 'easeInOut'
+      default:
+        break
+    }
+  }
+
   if (SUPPORTED_EASES.has(value)) return value
   return 'easeOut'
 }

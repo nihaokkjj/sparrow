@@ -12,6 +12,8 @@ export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'Only use mark types point, line, interval, pie, area, rect, cell, and text.',
   'Leaf plot data must be arrays of plain JSON objects.',
   'For pie, use encodings.angle for slice values and fill for categories. Multiple independent pie charts should use view layouts instead of plots.',
+  'If you use animation.enter as an object, write animation.enter.preset instead of animation.enter.type.',
+  'Allowed animation ease values are linear, easeIn, easeOut, and easeInOut. Do not use kebab-case values like ease-out.',
   'Do not output custom JavaScript, callbacks, or unsupported runtime fields.'
 ].join(' ')
 
