@@ -1,6 +1,6 @@
 export const DEFAULT_OPENAI_PROXY_PATH = '/api/openai'
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
-export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+export const DEFAULT_OPENAI_MODEL = 'glm-5'
 export const OPENAI_PROXY_TARGET_HEADER = 'X-Sparrow-Proxy-Target'
 
 export function normalizeProxyPath(value) {
