@@ -176,6 +176,15 @@ test('assembleAPNG() wraps PNG frames with APNG animation chunks', () => {
   expect(readUint32(acTLChunk, 4)).toBe(0)
 })
 
+test('assembleAPNG() plays once by default', () => {
+  const frame = createMockPNGFrame(Uint8Array.from([1, 2, 3]))
+  const apng = assembleAPNG([frame], [120])
+  const acTLChunk = readChunkData(apng, 'acTL')
+
+  expect(readUint32(acTLChunk, 0)).toBe(1)
+  expect(readUint32(acTLChunk, 4)).toBe(1)
+})
+
 function createMockPNGFrame(idatData) {
   return concatBytes(
     Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10),

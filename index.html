@@ -332,17 +332,14 @@
       }
 
       .preview-stage {
-        position: relative;
         margin: 0 20px 20px;
       }
 
-      .preview-toolbar {
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        z-index: 2;
+      .preview-head-actions {
         display: flex;
+        align-items: center;
         gap: 10px;
+        position: relative;
       }
 
       .icon-button {
@@ -360,13 +357,14 @@
         backdrop-filter: blur(10px);
       }
 
-      .format-button {
+      .menu-button {
         width: auto;
-        padding: 0 12px;
+        min-width: 88px;
+        padding: 0 14px;
         gap: 8px;
       }
 
-      .format-button .button-label {
+      .menu-button .button-label {
         font-size: 12px;
         font-weight: 600;
         letter-spacing: 0.02em;
@@ -378,9 +376,57 @@
         height: 18px;
       }
 
-      .icon-button:hover:not(:disabled) svg {
+      .icon-button.rotate-on-hover:hover:not(:disabled) svg {
         transform: rotate(90deg);
         transition: transform 0.22s ease;
+      }
+
+      .action-menu {
+        position: relative;
+      }
+
+      .action-menu-panel {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        min-width: 148px;
+        padding: 8px;
+        display: grid;
+        gap: 6px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.26);
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+        backdrop-filter: blur(14px);
+        z-index: 4;
+      }
+
+      .action-menu-panel[hidden] {
+        display: none;
+      }
+
+      .action-menu-item {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text);
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .action-menu-item:hover:not(:disabled) {
+        background: rgba(79, 70, 229, 0.08);
+      }
+
+      .action-menu-item:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
       }
 
       .sr-only {
@@ -685,13 +731,13 @@
                 <p class="section-title" style="margin-bottom: 8px">预览</p>
                 <div id="status" class="status">等待输入提示词。</div>
               </div>
-              <div id="summary" class="status">暂无图表规范</div>
-            </div>
-            <div class="preview-stage">
-              <div class="preview-toolbar">
+              <div class="preview-head-actions">
+                <div id="summary" class="status hidden" aria-hidden="true">
+                  暂无图表规范
+                </div>
                 <button
                   type="button"
-                  class="secondary icon-button"
+                  class="secondary icon-button rotate-on-hover"
                   id="rerender"
                   disabled
                   aria-label="重新渲染"
@@ -711,54 +757,61 @@
                   </svg>
                   <span class="sr-only">重新渲染</span>
                 </button>
-                <button
-                  type="button"
-                  class="secondary icon-button"
-                  id="export-image"
-                  disabled
-                  aria-label="导出 PNG"
-                  title="导出 PNG"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="secondary icon-button menu-button"
+                    id="export-menu-button"
+                    disabled
+                    aria-label="导出图表"
+                    aria-expanded="false"
+                    aria-haspopup="menu"
+                    title="导出图表"
                   >
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                  <span class="sr-only">导出 PNG</span>
-                </button>
-                <button
-                  type="button"
-                  class="secondary icon-button format-button"
-                  id="export-apng"
-                  disabled
-                  aria-label="导出 APNG"
-                  title="导出 APNG"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 3v12" />
+                      <path d="m7 10 5 5 5-5" />
+                      <path d="M5 21h14" />
+                    </svg>
+                    <span class="button-label" aria-hidden="true">导出</span>
+                  </button>
+                  <div
+                    class="action-menu-panel"
+                    id="export-menu-panel"
+                    role="menu"
+                    hidden
                   >
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                  <span class="button-label" aria-hidden="true">APNG</span>
-                  <span class="sr-only">导出 APNG</span>
-                </button>
+                    <button
+                      type="button"
+                      class="action-menu-item"
+                      id="export-image"
+                      role="menuitem"
+                    >
+                      <span>PNG</span>
+                      <span aria-hidden="true">静态</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-menu-item"
+                      id="export-apng"
+                      role="menuitem"
+                    >
+                      <span>APNG</span>
+                      <span aria-hidden="true">动图</span>
+                    </button>
+                  </div>
+                </div>
               </div>
+            </div>
+            <div class="preview-stage">
               <div class="preview" id="preview">
                 <div class="preview-empty">
                   生成后的 SVG 会显示在这里。

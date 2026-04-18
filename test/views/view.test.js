@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest'
+import { computeFlexViews } from '../../src/views/flex.js'
 import { createViews } from '../../src/views/view.js'
 
 test('createViews computes layout tree and groups nodes sharing same view', () => {
@@ -20,6 +21,10 @@ test('createViews computes layout tree and groups nodes sharing same view', () =
   }
 
   const views = createViews(root)
+  const [leftView, rightView] = computeFlexViews(
+    { x: 0, y: 0, width: 400, height: 200 },
+    root
+  )
 
   expect(views).toHaveLength(3)
 
@@ -28,14 +33,20 @@ test('createViews computes layout tree and groups nodes sharing same view', () =
   expect(rootGroup[1]).toEqual([root])
 
   const leftGroup = views.find(
-    ([view]) => view.x === 0 && view.width === 180 && view.height === 200
+    ([view]) =>
+      view.x === leftView.x &&
+      view.width === leftView.width &&
+      view.height === leftView.height
   )
   expect(leftGroup[1]).toEqual(
     expect.arrayContaining([leftLayer, leftMark])
   )
 
   const rightGroup = views.find(
-    ([view]) => view.x === 220 && view.width === 180 && view.height === 200
+    ([view]) =>
+      view.x === rightView.x &&
+      view.width === rightView.width &&
+      view.height === rightView.height
   )
   expect(rightGroup[1]).toEqual(
     expect.arrayContaining([rightLayer, rightMark])

@@ -29,6 +29,8 @@ const autoLayoutInput = document.getElementById('autoLayout')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
 const rerenderButton = document.getElementById('rerender')
+const exportMenuButton = document.getElementById('export-menu-button')
+const exportMenuPanel = document.getElementById('export-menu-panel')
 const exportImageButton = document.getElementById('export-image')
 const exportAPNGButton = document.getElementById('export-apng')
 const statusNode = document.getElementById('status')
@@ -185,9 +187,15 @@ function getRenderPreferences() {
 
 function syncChartActionButtons() {
   const hasRenderedSpec = Boolean(lastRenderedSpec)
+  const exportDisabled = !hasRenderedSpec || isExportingImage
   rerenderButton.disabled = !hasRenderedSpec
-  exportImageButton.disabled = !hasRenderedSpec || isExportingImage
-  exportAPNGButton.disabled = !hasRenderedSpec || isExportingImage
+  exportMenuButton.disabled = exportDisabled
+  exportImageButton.disabled = exportDisabled
+  exportAPNGButton.disabled = exportDisabled
+
+  if (exportDisabled) {
+    closeExportMenu()
+  }
 }
 
 function rememberRenderedSpec(spec, dimensions) {
@@ -293,6 +301,20 @@ async function exportRenderedAPNG() {
 function createExportFilename(extension = 'png') {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   return `sparrow-chart-${timestamp}.${extension}`
+}
+
+function setExportMenuOpen(open) {
+  const isOpen = Boolean(open) && !exportMenuButton.disabled
+  exportMenuPanel.hidden = !isOpen
+  exportMenuButton.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeExportMenu() {
+  setExportMenuOpen(false)
+}
+
+function toggleExportMenu() {
+  setExportMenuOpen(exportMenuPanel.hidden)
 }
 
 function createConfiguredProvider(systemPrompt) {
@@ -402,11 +424,28 @@ stopButton.addEventListener('click', () => {
 })
 
 rerenderButton.addEventListener('click', renderStoredSpec)
+exportMenuButton.addEventListener('click', (event) => {
+  event.stopPropagation()
+  toggleExportMenu()
+})
 exportImageButton.addEventListener('click', () => {
+  closeExportMenu()
   void exportRenderedImage()
 })
 exportAPNGButton.addEventListener('click', () => {
+  closeExportMenu()
   void exportRenderedAPNG()
+})
+document.addEventListener('click', (event) => {
+  if (exportMenuPanel.hidden) return
+  if (exportMenuPanel.contains(event.target)) return
+  if (exportMenuButton.contains(event.target)) return
+  closeExportMenu()
+})
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeExportMenu()
+  }
 })
 
 form.addEventListener('submit', async (event) => {
@@ -438,8 +477,7 @@ form.addEventListener('submit', async (event) => {
   summaryNode.textContent = '等待 JSON'
   streamLogNode.textContent = ''
   specJsonNode.textContent = ''
-  previewNode.innerHTML =
-    '<div class="preview-empty">正在流式接收并解析…</div>'
+  previewNode.innerHTML = '<div class="preview-empty">正在流式接收并解析…</div>'
 
   try {
     const canvasWidth = parseInt(canvasWidthInput.value) || 640
@@ -495,9 +533,7 @@ form.addEventListener('submit', async (event) => {
         lastRenderResult = result
         const effectiveSpec = getEffectiveSpec(spec)
         const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
-        const animationSuffix = animateRenderInput.checked
-          ? '，带入场动画'
-          : ''
+        const animationSuffix = animateRenderInput.checked ? '，带入场动画' : ''
         statusNode.textContent = layoutLabel
           ? `已根据最近一个有效 JSON 对象渲染 ${layoutLabel}，包含 ${typeLabel}${animationSuffix}。`
           : `已根据最近一个有效 JSON 对象渲染 ${typeLabel}${animationSuffix}。`

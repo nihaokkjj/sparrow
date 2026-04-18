@@ -5,7 +5,7 @@ const DEFAULT_FILENAME = 'sparrow-chart.png'
 const DEFAULT_APNG_FILENAME = 'sparrow-chart.apng'
 const DEFAULT_SCALE = 2
 const DEFAULT_APNG_FPS = 20
-const DEFAULT_APNG_PLAYS = 0
+const DEFAULT_APNG_PLAYS = 1
 const DEFAULT_APNG_SETTLE_DELAY = 80
 const DEFAULT_SINGLE_FRAME_DELAY = 1000
 const PNG_SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10)
@@ -178,7 +178,11 @@ export function estimateAnimationDuration(renderResult) {
   }, 0)
 }
 
-export function assembleAPNG(framePNGs, frameDelays, { plays = 0 } = {}) {
+export function assembleAPNG(
+  framePNGs,
+  frameDelays,
+  { plays = DEFAULT_APNG_PLAYS } = {}
+) {
   if (!Array.isArray(framePNGs) || framePNGs.length === 0) {
     throw new Error('APNG export requires at least one PNG frame.')
   }
