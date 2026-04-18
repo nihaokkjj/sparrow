@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -287,13 +287,61 @@
       }
 
       .preview {
-        margin: 0 20px 20px;
         min-height: 420px;
         border: 1px solid var(--line);
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.92), transparent),
           rgba(248, 250, 252, 0.95);
         overflow: hidden;
+      }
+
+      .preview-stage {
+        position: relative;
+        margin: 0 20px 20px;
+      }
+
+      .preview-toolbar {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 2;
+      }
+
+      .icon-button {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: #4f46e5;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.34);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+        backdrop-filter: blur(10px);
+      }
+
+      .icon-button svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .icon-button:hover:not(:disabled) svg {
+        transform: rotate(90deg);
+        transition: transform 0.22s ease;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
 
       .preview svg {
@@ -376,8 +424,8 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="/assets/modulepreload-polyfill-Cf3xff8G.js"></script>
-    <script type="module" crossorigin src="/assets/playground-page-vYo81rm6.js"></script>
+    <script type="module" crossorigin src="/assets/index-DZQLXgOF.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-wMinxHhO.js">
   </head>
   <body>
     <div class="shell">
@@ -407,6 +455,50 @@
             <textarea id="prompt" name="prompt">
 做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea
             >
+          </div>
+
+          <div class="field inline">
+            <div class="field">
+              <label for="canvasWidth">画布宽度</label>
+              <input
+                id="canvasWidth"
+                name="canvasWidth"
+                type="number"
+                value="640"
+                min="100"
+                max="2000"
+                style="width: 100%"
+              />
+            </div>
+            <div class="field">
+              <label for="canvasHeight">画布高度</label>
+              <input
+                id="canvasHeight"
+                name="canvasHeight"
+                type="number"
+                value="480"
+                min="100"
+                max="2000"
+                style="width: 100%"
+              />
+            </div>
+          </div>
+
+          <div class="field toggle-field">
+            <label class="toggle-control" for="autoLayout">
+              <input
+                id="autoLayout"
+                name="autoLayout"
+                type="checkbox"
+                checked
+              />
+              <span>Auto-balance multi-panel layout</span>
+            </label>
+            <div class="hint">
+              Keep this on to let <code>renderAISpec()</code> rebalance crowded
+              flat row/col specs into a near-square grid based on canvas size.
+              Turn it off to preserve the model's original layout exactly.
+            </div>
           </div>
 
           <div class="field">
@@ -507,9 +599,58 @@
               </div>
               <div id="summary" class="status">No spec yet</div>
             </div>
-            <div class="preview" id="preview">
-              <div class="preview-empty">
-                Your rendered SVG will appear here.
+            <div class="preview-stage">
+              <div class="preview-toolbar">
+                <button
+                  type="button"
+                  class="secondary icon-button"
+                  id="rerender"
+                  disabled
+                  aria-label="重新渲染"
+                  title="重新渲染"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <path d="M21 3v6h-6" />
+                  </svg>
+                  <span class="sr-only">重新渲染</span>
+                </button>
+                <button
+                  type="button"
+                  class="secondary icon-button"
+                  id="export-image"
+                  disabled
+                  aria-label="Export PNG"
+                  title="Export PNG"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                  <span class="sr-only">Export PNG</span>
+                </button>
+              </div>
+              <div class="preview" id="preview">
+                <div class="preview-empty">
+                  Your rendered SVG will appear here.
+                </div>
               </div>
             </div>
           </section>
@@ -546,7 +687,7 @@
 
       <p class="footer">
         提示：在当前目录运行 <code>pnpm dev</code>，然后打开
-        <code>/playground.html</code>。
+        <code>/</code>。
       </p>
     </div>
   </body>

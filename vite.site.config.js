@@ -19,7 +19,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: path.resolve(rootDir, 'index.html'),
-        playground: path.resolve(rootDir, 'playground.html'),
         rendererTest: path.resolve(rootDir, 'renderer-test.html')
       }
     }

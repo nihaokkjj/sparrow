@@ -27,6 +27,7 @@ const connectionModeHint = document.getElementById('connection-mode-hint')
 const modelInput = document.getElementById('model')
 const apiKeyInput = document.getElementById('apiKey')
 const animateRenderInput = document.getElementById('animateRender')
+const autoLayoutInput = document.getElementById('autoLayout')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
 const rerenderButton = document.getElementById('rerender')
@@ -141,7 +142,8 @@ function persistProviderSettings() {
       connectionMode: connectionModeSelect.value,
       targetBaseURL: targetBaseURLInput.value.trim(),
       model: modelInput.value.trim(),
-      animateRender: animateRenderInput.checked
+      animateRender: animateRenderInput.checked,
+      autoLayout: autoLayoutInput.checked
     })
   )
 }
@@ -150,6 +152,12 @@ function getEffectiveSpec(spec) {
   return applyPlaygroundAnimationPreference(spec, {
     enabled: animateRenderInput.checked
   })
+}
+
+function getRenderPreferences() {
+  return {
+    autoLayout: autoLayoutInput.checked
+  }
 }
 
 function syncChartActionButtons() {
@@ -183,6 +191,7 @@ function renderStoredSpec() {
     lastRenderResult?.stopAnimations?.()
     lastRenderResult = renderAISpec(cloneSpec(lastRenderedSpec), {
       container: previewNode,
+      ...getRenderPreferences(),
       ...(lastRenderedDimensions || {})
     })
 
@@ -212,6 +221,7 @@ async function exportRenderedImage() {
   try {
     await exportSpecAsPNG(cloneSpec(lastRenderedSpec), {
       ...(lastRenderedDimensions || {}),
+      ...getRenderPreferences(),
       filename: createExportFilename()
     })
 
@@ -274,6 +284,7 @@ function initializeProviderSettings() {
       : defaultProviderSettings.targetBaseURL
   modelInput.value = stored.model || defaultProviderSettings.model
   animateRenderInput.checked = stored.animateRender === true
+  autoLayoutInput.checked = stored.autoLayout !== false
   syncPromptPresetUI()
   syncConnectionModeUI()
 }
@@ -301,6 +312,12 @@ connectionModeSelect.addEventListener('change', () => {
 targetBaseURLInput.addEventListener('input', persistProviderSettings)
 modelInput.addEventListener('input', persistProviderSettings)
 animateRenderInput.addEventListener('change', persistProviderSettings)
+autoLayoutInput.addEventListener('change', () => {
+  persistProviderSettings()
+  if (lastRenderedSpec) {
+    renderStoredSpec()
+  }
+})
 
 stopButton.addEventListener('click', () => {
   controller?.abort()
@@ -392,12 +409,14 @@ form.addEventListener('submit', async (event) => {
         }
         return renderAISpec(specWithSize, {
           ...renderOptions,
+          ...getRenderPreferences(),
           width: canvasWidth,
           height: canvasHeight
         })
       },
       renderOptions: {
         container: previewNode,
+        ...getRenderPreferences(),
         width: canvasWidth,
         height: canvasHeight
       },

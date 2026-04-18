@@ -9,6 +9,8 @@ export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'Supported view.type values are row, col, layer, and facet.',
   'In view.children, nested views must be direct objects with type and children. Do not wrap nested views inside { "view": { ... } }.',
   'View children may be nested view nodes, { plot: {...} }, { plots: [...] }, or direct leaf mark specs.',
+  'When many independent panels are requested without an explicit direction, prefer a near-square nested row/col layout instead of a long strip.',
+  'Do not use empty text, point, rect, or other marks as layout placeholders.',
   'Only use mark types point, line, interval, pie, area, rect, cell, and text.',
   'Leaf plot data must be arrays of plain JSON objects.',
   'For pie, use encodings.angle for slice values and fill for categories. Multiple independent pie charts should use view layouts instead of plots.',

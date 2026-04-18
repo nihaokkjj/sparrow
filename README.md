@@ -1,153 +1,63 @@
-```mermaid
-flowchart TD
-    A["npm 包入口\nsrc/index.js"] --> B["createRenderer\nsrc/renderer/renderer.js"]
-
-    subgraph P["对外稳定发布层"]
-      A
-      B
-    end
-
-    subgraph R["Renderer 渲染层"]
-      B --> R1["context\n创建 svg / g\nsrc/renderer/context.js"]
-      B --> R2["shape\nline / rect / circle / path / text / ring\nsrc/renderer/shape.js"]
-      B --> R3["transform\ntranslate / rotate / scale / save / restore\nsrc/renderer/transform.js"]
-      B --> R4["animate\ntween / sequence / stagger\nsrc/renderer/animate.js"]
-      R1 --> R2
-      R1 --> R3
-    end
-
-    subgraph C["Coordinate 坐标变换层"]
-      C0["createCoordinate\nsrc/coordinate/coordinate.js"]
-      C1["cartesian\nsrc/coordinate/cartesian.js"]
-      C2["polar\nsrc/coordinate/polar.js"]
-      C3["transpose\nsrc/coordinate/transpose.js"]
-      C4["基础 transforms\nsrc/coordinate/transforms.js"]
-      C1 --> C4
-      C2 --> C4
-      C3 --> C4
-      C0 --> C1
-      C0 --> C2
-      C0 --> C3
-    end
-
-    subgraph S["Scale 比例尺层"]
-      S0["scale index\nsrc/scale/index.js"]
-      S1["linear / log / time"]
-      S2["ordinal / band / point"]
-      S3["quantile / quantize / threshold"]
-      S4["tickStep / nice / ticks\nsrc/scale/utils.js"]
-      S0 --> S1
-      S0 --> S2
-      S0 --> S3
-      S1 --> S4
-    end
-
-    subgraph G["Geometry 图元层"]
-      G0["point mark\nsrc/geometry/point.js"]
-      G1["channel 定义\nsrc/geometry/channel.js"]
-      G2["channelStyles\nsrc/geometry/style.js"]
-      G0 --> G1
-      G0 --> G2
-    end
-
-    subgraph T["Statistic 统计变换层"]
-      T0["bin\nsrc/statistic/bin.js"]
-      T1["stack\nsrc/statistic/stack.js"]
-      T2["normalize\nsrc/statistic/normalize.js"]
-      T3["symmetry\nsrc/statistic/symmetry.js"]
-    end
-
-    subgraph U["Guide 引导层"]
-      U0["axisX / axisY\nsrc/guide/axisX.js\nsrc/guide/axisY.js"]
-      U1["axis 公共逻辑\nsrc/guide/axis.js"]
-      U2["ticks / grid\nsrc/guide/ticks.js\nsrc/guide/grid.js"]
-      U3["legendRamp / legendSwatches"]
-      U0 --> U1
-      U1 --> U2
-      U3 --> U1
-    end
-
-    subgraph V["Views 视图布局层"]
-      V0["createViews\nsrc/views/view.js"]
-      V1["row / col\nsrc/views/flex.js"]
-      V2["layer\nsrc/views/layer.js"]
-      V3["facet\nsrc/views/facet.js"]
-      V0 --> V1
-      V0 --> V2
-      V0 --> V3
-    end
-
-    subgraph L["Plot 图形语法层"]
-      L0["create\nsrc/plot/create.js"]
-      L1["initialize / encoding\nsrc/plot/encoding.js"]
-      L2["inferScales / applyScales\nsrc/plot/plot.js"]
-      L3["inferGuides\nsrc/plot/guide.js"]
-      L4["geometry encoding helper\nsrc/plot/geometry.js"]
-      L0 --> L1
-      L1 --> L4
-      L1 --> T0
-      L1 --> T1
-      L1 --> T2
-      L1 --> T3
-      L2 --> S0
-      L3 --> U0
-      L3 --> U3
-    end
-
-    L1 --> G0
-    L2 --> C0
-    G0 --> B
-    U0 --> B
-    U3 --> B
-    V0 --> L0
-
-```
-
-模块调用关系
-
-```mermaid
-flowchart LR
-    A["原始数据 data"] --> B["encoding 初始化\nsrc/plot/encoding.js"]
-    B --> C["提取字段 / 常量 / transform 值"]
-    C --> D["统计变换\nbin / stack / normalize / symmetry"]
-    D --> E["geometry.channels()\n确定 mark 需要的通道"]
-    E --> F["inferScales\nsrc/plot/plot.js"]
-    F --> G["创建各类 scale"]
-    G --> H["applyScales\n把值映射到视觉通道"]
-    H --> I["createCoordinate\n做坐标系组合变换"]
-    I --> J["geometry 渲染\n如 point -> circle"]
-    J --> K["renderer.draw\n输出到 SVG"]
-    G --> M["inferGuides\n生成 axis / legend"]
-    M --> N["guide 渲染"]
-    N --> K
-    O["views 布局\nrow / col / layer / facet"] --> B
-    O --> M
-
-```
-
 # Sparrow
 
-Lightweight SVG renderer and visualization primitives.
+Sparrow 是一个轻量级 SVG 可视化项目，既可以作为底层图形渲染器使用，也可以通过声明式 `SparrowPlotSpec` 快速生成图表。项目还内置了 AI Playground：输入自然语言，接收模型流式输出的 JSON 图表规格，并实时渲染为 SVG。
 
-Sparrow is a small front-end rendering library centered around an SVG renderer.
-The published package exposes a stable core built around `createRenderer`,
-plus reusable coordinate, scale, and statistic primitives.
+它适合这些场景：
 
-![Sparrow renderer example](./docs/readme-example.svg)
+- 在 Web 页面中直接绘制 SVG 图形、图表和信息可视化。
+- 用简洁 JSON 描述柱状图、折线图、散点图、饼图、面积图、热力图等常见图表。
+- 将大模型输出约束为稳定的图表规格，再渲染成可控、可测试、可导出的 SVG。
+- 在自己的项目里复用坐标系、比例尺、统计变换、轴、图例、多视图布局等基础能力。
 
-## Install
+## 项目亮点
+
+- **SVG-first**：核心输出是标准 SVG 元素，易于挂载到 DOM、截图、导出和二次处理。
+- **轻量模块化**：核心渲染器、坐标系、比例尺、统计变换、图表语法、引导组件和视图布局相互独立。
+- **声明式图表规格**：用 `SparrowPlotSpec` 描述数据、编码、比例尺、坐标系、图例、动画和布局。
+- **AI 友好**：内置模型提示词、JSON 流式解析、Mock Provider、OpenAI-compatible Provider 和浏览器 Playground。
+- **多图布局能力**：支持 `row`、`col`、`layer`、`facet`，并能自动把拥挤的长条多面板布局平衡成近似网格。
+- **动画与导出**：支持常用入场动画预设，并在 Playground 中提供 PNG 导出。
+- **多格式产物**：构建输出 ESM、CommonJS 和 UMD，方便在不同工程中接入。
+
+## 快速开始
+
+### 安装
 
 ```bash
 npm install @ksj_sparrow/sparrow
 ```
 
-or
+或：
 
 ```bash
 pnpm add @ksj_sparrow/sparrow
 ```
 
-## Quick Start
+### 本地运行 Playground
+
+```bash
+pnpm install
+pnpm dev
+```
+
+启动后打开 Vite 提供的本地地址，访问 `/` 即可使用 AI Playground。
+
+### 常用命令
+
+| 命令 | 作用 |
+| --- | --- |
+| `pnpm dev` | 启动本地开发服务和 AI Playground |
+| `pnpm build` | 构建库产物到 `dist/` |
+| `pnpm build:site` | 构建站点到 `site-dist/` |
+| `pnpm preview:site` | 预览构建后的站点 |
+| `pnpm test` | 运行单元测试和覆盖率 |
+| `pnpm ci` | 依次运行测试和构建 |
+
+## 使用方式
+
+### 1. 使用底层 SVG Renderer
+
+如果你只需要直接绘制 SVG，可以从根入口导入 `createRenderer`。
 
 ```js
 import { createRenderer } from '@ksj_sparrow/sparrow'
@@ -155,160 +65,113 @@ import { createRenderer } from '@ksj_sparrow/sparrow'
 const renderer = createRenderer(420, 240)
 
 renderer.rect({
-  x: 24,
-  y: 24,
-  width: 140,
-  height: 82,
-  fill: '#91d5ff',
-  stroke: '#1677ff',
+  x: 32,
+  y: 32,
+  width: 150,
+  height: 84,
+  fill: '#dbeafe',
+  stroke: '#2563eb',
   strokeWidth: 2
 })
 
 renderer.circle({
-  cx: 270,
-  cy: 76,
-  r: 34,
-  fill: '#ffd666',
-  stroke: '#d48806',
+  cx: 290,
+  cy: 74,
+  r: 36,
+  fill: '#fde68a',
+  stroke: '#d97706',
   strokeWidth: 2
 })
 
 renderer.line({
-  x1: 36,
-  y1: 186,
-  x2: 364,
-  y2: 136,
-  stroke: '#722ed1',
+  x1: 48,
+  y1: 176,
+  x2: 360,
+  y2: 138,
+  stroke: '#7c3aed',
   strokeWidth: 3
 })
 
 renderer.text({
   x: 210,
-  y: 220,
+  y: 218,
   text: 'Hello Sparrow',
   textAnchor: 'middle',
-  fill: '#333',
+  fill: '#0f172a',
   fontSize: 18
 })
 
 document.querySelector('#app').appendChild(renderer.node())
 ```
 
-## Browser Example
+Renderer 当前提供：
 
-If you are using Sparrow in a Vite or other ESM-based front-end project, a
-minimal page can look like this:
+- 基础图形：`line()`、`rect()`、`circle()`、`text()`、`path()`、`ring()`。
+- 变换能力：`translate()`、`rotate()`、`scale()`、`save()`、`restore()`。
+- 动画能力：`animate()`、`tween()`、`sequence()`、`stagger()`。
+- DOM 输出：`node()` 返回根 `<svg>`，`group()` 返回当前 `<g>`。
 
-```html
-<div id="app"></div>
+### 2. 使用 Plot Spec 渲染图表
 
-<script type="module">
-  import { createRenderer } from '@ksj_sparrow/sparrow'
+如果你希望用数据和编码描述图表，可以使用 `@ksj_sparrow/sparrow/plot`。
 
-  const renderer = createRenderer(320, 180)
-  renderer.rect({
-    x: 20,
-    y: 20,
-    width: 120,
-    height: 70,
-    fill: '#b7eb8f',
-    stroke: '#389e0d',
-    strokeWidth: 2
-  })
-  renderer.text({
-    x: 160,
-    y: 150,
-    text: 'Rendered in the browser',
-    textAnchor: 'middle',
-    fill: '#333'
-  })
+```js
+import { renderPlotSpec } from '@ksj_sparrow/sparrow/plot'
 
-  document.getElementById('app').appendChild(renderer.node())
-</script>
-```
-
-## API Overview
-
-`createRenderer(width, height)` returns an SVG renderer instance with these
-core methods:
-
-- `line(options)`
-- `rect(options)`
-- `circle(options)`
-- `text(options)`
-- `path(options)`
-- `ring(options)`
-- `translate(tx, ty)`
-- `rotate(theta)`
-- `scale(sx, sy)`
-- `save()`
-- `restore()`
-- `animate(element, from, to, options)`
-- `tween(options)`
-- `sequence(steps)`
-- `stagger(items, factory, options)`
-- `node()`
-- `group()`
-
-In addition to the renderer, the package also exposes these stable building
-blocks from the root entry:
-
-- Coordinate: `createCoordinate`, `cartesian`, `polar`, `transpose`
-- Scale: `createLinear`, `createLog`, `createTime`, `createBand`,
-  `createPoint`, `createOrdinal`, `createQuantile`, `createQuantize`,
-  `createThreshold`, `createIdentity`, `interpolateNumber`,
-  `interpolateColor`
-- Statistic: `createBinX`, `createNormalizeY`, `createStackY`,
-  `createSymmetryY`
-
-## Minimal AI Playground
-
-The `plot` subpath now includes a minimal prompt-to-`SparrowPlotSpec`-to-SVG chain:
-
-- `createOpenAICompatibleProvider(...)`
-- `createMockPlotProvider(...)`
-- `createPlotSpecChunkBuffer()`
-- `parsePlotSpecResponse(text)`
-- `streamPlotSpec(...)`
-- `renderAISpec(spec, options)`
-- `renderPlotSpec(spec, options)`
-
-The model-facing contract is: output a single `SparrowPlotSpec` JSON object,
-optionally wrapped in one fenced `json` block. Use `plot` for one layer or
-`plots` for multiple layered marks in the same view. Use `view` for multi-panel
-layouts backed by Sparrow views (`row`, `col`, `layer`, `facet`). Prefer
-`plots` over `view.type = "layer"` when marks should share the same scales and
-guides. Supported marks include `point`, `line`, `interval`, `pie`, `area`,
-`rect`, `cell`, and `text`. For `pie`, use `encodings.angle` for slice values.
-When a request needs multiple independent pie charts, use `view` with `row`,
-`col`, or `facet` instead of `plots`. Inside `view.children`, nested views must
-be written directly as `{ type, children }`, not wrapped as `{ view: { ... } }`.
-Leaf plot specs may also include `animation.enter` with presets such as
-`fade-in`, `rise-in`, `grow-y`, `pop-in`, `stagger-rise-in`, `sweep-in`, and `draw-in`.
-
-Both `renderPlotSpec()` and `renderAISpec()` return `playAnimations()` and
-`stopAnimations()` helpers. When the SVG is mounted during rendering, entrance
-animations autoplay; otherwise you can mount the node first and call
-`playAnimations()` manually.
-
-Minimal `view` example:
-
-```json
-{
-  "width": 900,
-  "height": 360,
-  "view": {
-    "type": "row",
-    "padding": 24,
-    "children": [
-      { "plot": { "type": "interval" } },
-      { "plot": { "type": "line" } }
-    ]
+const result = renderPlotSpec({
+  width: 640,
+  height: 420,
+  container: '#app',
+  data: [
+    { quarter: 'Q1', value: 12 },
+    { quarter: 'Q2', value: 18 },
+    { quarter: 'Q3', value: 15 },
+    { quarter: 'Q4', value: 24 }
+  ],
+  plots: [
+    {
+      type: 'line',
+      encodings: { x: 'quarter', y: 'value' },
+      styles: { stroke: '#2563eb', strokeWidth: 3 },
+      animation: { enter: 'draw-in' }
+    },
+    {
+      type: 'point',
+      encodings: { x: 'quarter', y: 'value' },
+      styles: { fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 },
+      animation: { enter: 'pop-in' }
+    }
+  ],
+  scales: {
+    x: { type: 'dot' },
+    y: { zero: true }
+  },
+  guides: {
+    x: { label: 'Quarter' },
+    y: { label: 'Value', grid: true }
   }
-}
+})
+
+console.log(result.node)
 ```
 
-Example:
+`renderPlotSpec()` 会返回渲染结果对象，常用字段包括：
+
+- `node`：生成的 SVG 节点。
+- `marks`：图表主体图形节点。
+- `scales` / `scaleDescriptors`：比例尺实例和描述信息。
+- `guideDescriptors`：坐标轴、网格、图例等引导信息。
+- `playAnimations()` / `stopAnimations()`：手动播放或停止入场动画。
+
+### 3. 使用 AI Playground / 自然语言生成图表
+
+项目内置了从自然语言到图表的最小链路：
+
+```txt
+Prompt -> Provider -> 流式文本 -> SparrowPlotSpec JSON -> SVG
+```
+
+你可以先用 Mock Provider 验证完整流程：
 
 ```js
 import {
@@ -316,114 +179,188 @@ import {
   streamPlotSpec
 } from '@ksj_sparrow/sparrow/plot'
 
-const container = document.getElementById('app')
-
 await streamPlotSpec({
-  prompt: 'Create a quarterly trend line chart.',
-  provider: createMockPlotProvider(),
-  renderOptions: { container }
+  prompt: 'Create a quarterly trend line chart from Q1 to Q4',
+  provider: createMockPlotProvider({ delay: 0 }),
+  renderOptions: {
+    container: '#app'
+  },
+  onChunk(chunk) {
+    console.log('chunk:', chunk)
+  },
+  onSpec(spec) {
+    console.log('valid spec:', spec)
+  }
 })
 ```
 
-For a browser demo, run `pnpm dev` and open `/playground.html`.
+### 4. 接入 OpenAI-compatible 模型
 
-The Playground now supports two runtime connection modes for OpenAI-compatible
-providers:
+Playground 支持两种连接方式：
 
-- `Same-origin proxy`: the browser calls the local dev proxy first, and the
-  proxy forwards the request to the official endpoint or any relay URL you fill
-  in at runtime.
-- `Direct / relay URL`: the browser calls the configured OpenAI-compatible URL
-  directly. This requires the target endpoint to allow CORS.
+- **Same-origin proxy**：浏览器请求本地 Vite 代理，由代理转发到 OpenAI 或其他兼容接口，推荐用于避免 CORS。
+- **Direct / relay URL**：浏览器直接请求目标地址，目标服务需要允许 CORS。
 
-Create a `.env.local` file in the repo root when you want to use a real model:
+如果使用本地代理，在项目根目录创建 `.env.local`：
 
 ```bash
 OPENAI_PROXY_TARGET=https://api.openai.com/v1
 OPENAI_API_KEY=sk-...
 ```
 
-Or point the proxy at your own default relay:
+也可以把代理指向自己的中转服务：
 
 ```bash
 OPENAI_PROXY_TARGET=http://localhost:3001/v1
 ```
 
-Then run `pnpm dev`. In the Playground you can either:
+然后运行：
 
-- choose `Same-origin proxy` and leave `Target Base URL` empty to use the
-  default server-side target from `.env.local`
-- choose `Same-origin proxy` and fill `Target Base URL` with any official or
-  relay URL at runtime
-- choose `Direct / relay URL` to call the target endpoint directly from the
-  browser
+```bash
+pnpm dev
+```
 
-The dev proxy keeps the streaming response shape expected by
-`createOpenAICompatibleProvider(...)`.
+在 Playground 中选择 `OpenAI-compatible`，填写模型名称和连接方式即可。项目默认代理路径为 `/api/openai`。
 
-## Skills
-
-Sparrow now ships with two local skills under `skills/` to keep AI usage and
-developer changes aligned:
-
-- `skills/sparrow-spec-creator`: user-facing skill for generating a single
-  valid `SparrowPlotSpec` JSON object from natural-language chart requests
-- `skills/sparrow-core-contributor`: developer-facing skill for changing the
-  runtime, prompt contract, guides, views, exports, and matching tests
-
-The user-facing JSON contract lives in
-`skills/sparrow-spec-creator/references/prompt.md`. The developer workflow
-lives in `skills/sparrow-core-contributor/references/architecture.md` and
-`skills/sparrow-core-contributor/references/testing.md`.
-
-The browser playground now includes a `Skill / Mode` selector and defaults to
-`sparrow-spec-creator`, so the same repo-local skill prompt can drive real
-model calls without copying prompt text by hand.
-
-If you want to reuse the built-in skill contract in your own app code, import a
-prompt preset from `@ksj_sparrow/sparrow/plot` and pass its `systemPrompt` to
-`createOpenAICompatibleProvider(...)`.
-
-Example:
+在代码中也可以直接组装 Provider：
 
 ```js
 import {
-  createRenderer,
-  polar,
-  createLinear,
-  createStackY
-} from '@ksj_sparrow/sparrow'
+  buildProviderRequestConfig,
+  createOpenAICompatibleProvider,
+  streamPlotSpec
+} from '@ksj_sparrow/sparrow/plot'
 
-const angle = createLinear({
-  domain: [0, 100],
-  range: [0, 1]
+const requestConfig = buildProviderRequestConfig({
+  connectionMode: 'proxy',
+  targetBaseURL: 'https://api.openai.com/v1'
 })
 
-const coordinate = polar({
-  startAngle: -Math.PI / 2,
-  endAngle: (Math.PI / 2) * 3,
-  innerRadius: 0,
-  outerRadius: 1
+const provider = createOpenAICompatibleProvider({
+  baseURL: requestConfig.baseURL,
+  headers: requestConfig.headers,
+  model: 'gpt-4o-mini'
 })
 
-const stackY = createStackY()
+await streamPlotSpec({
+  prompt: 'Create a bar chart of sales by region',
+  provider,
+  renderOptions: { container: '#app' }
+})
 ```
 
-## Notes
+## SparrowPlotSpec 速览
 
-- `node()` returns the root `<svg>` element, which you can append directly to
-  the DOM.
-- `group()` returns the current `<g>` element used for drawing.
-- `rect()` supports negative `width` and `height` values by normalizing the
-  final SVG attributes.
-- `path()` accepts an array-based path DSL such as
-  `[['M', 0, 0], ['L', 100, 100], ['Z']]`.
-- `save()` and `restore()` let you isolate transforms on nested `<g>` groups.
+`SparrowPlotSpec` 是项目的高层图表 JSON 格式。它有三种常见写法。
 
-## Package Scope
+### 单图
 
-This npm package currently exposes the following stable public APIs from the
-root entry:
+```json
+{
+  "width": 480,
+  "height": 320,
+  "plot": {
+    "type": "interval",
+    "data": [
+      { "category": "A", "value": 12 },
+      { "category": "B", "value": 18 }
+    ],
+    "encodings": {
+      "x": "category",
+      "y": "value"
+    },
+    "styles": {
+      "fill": "#5b6df6"
+    }
+  },
+  "guides": {
+    "x": { "label": "Category" },
+    "y": { "label": "Value", "grid": true }
+  }
+}
+```
+
+### 多图层
+
+多个 mark 共享数据、比例尺和引导组件时，使用 `plots`：
+
+```json
+{
+  "width": 640,
+  "height": 360,
+  "data": [
+    { "month": "Jan", "value": 10 },
+    { "month": "Feb", "value": 16 },
+    { "month": "Mar", "value": 13 }
+  ],
+  "plots": [
+    {
+      "type": "line",
+      "encodings": { "x": "month", "y": "value" }
+    },
+    {
+      "type": "point",
+      "encodings": { "x": "month", "y": "value" }
+    }
+  ],
+  "scales": {
+    "x": { "type": "dot" },
+    "y": { "zero": true }
+  }
+}
+```
+
+### 多视图
+
+多个独立图表面板使用 `view`：
+
+```json
+{
+  "width": 900,
+  "height": 420,
+  "view": {
+    "type": "row",
+    "padding": 24,
+    "children": [
+      {
+        "plot": {
+          "type": "interval",
+          "data": [
+            { "category": "A", "value": 12 },
+            { "category": "B", "value": 18 }
+          ],
+          "encodings": { "x": "category", "y": "value" }
+        }
+      },
+      {
+        "plot": {
+          "type": "pie",
+          "data": [
+            { "name": "Desktop", "value": 55 },
+            { "name": "Mobile", "value": 45 }
+          ],
+          "encodings": { "angle": "value", "fill": "name" }
+        }
+      }
+    ]
+  }
+}
+```
+
+### 支持的图表能力
+
+- **Mark 类型**：`point`、`line`、`interval`、`pie`、`area`、`rect`、`cell`、`text`。
+- **编码字段**：常用 `x`、`y`、`x1`、`y1`、`fill`、`stroke`、`r`、`text`、`angle` 等。
+- **比例尺**：`linear`、`log`、`time`、`band`、`dot`、`ordinal`、`identity`、`quantile`、`quantize`、`threshold`。
+- **坐标系**：`cartesian`、`polar`、`transpose`，饼图会默认使用极坐标。
+- **引导组件**：`axisX`、`axisY`、`legendRamp`、`legendSwatches`，可通过 `guides` 控制显示、位置、标签和网格。
+- **统计变换**：`binX`、`stackY`、`normalizeY`、`symmetryY`。
+- **视图布局**：`row`、`col`、`layer`、`facet`。
+- **动画预设**：`fade-in`、`rise-in`、`grow-y`、`pop-in`、`stagger-rise-in`、`sweep-in`、`draw-in`。
+
+## 公开 API
+
+### 根入口
 
 ```js
 import {
@@ -451,14 +388,7 @@ import {
 } from '@ksj_sparrow/sparrow'
 ```
 
-The root entry keeps a smaller stable surface focused on renderer,
-coordinate, scale, and statistic primitives. Higher-level modules such as
-plot, guide, and views are additionally exposed through subpath imports so
-they can evolve with clearer boundaries than the root package entry.
-
-## Subpath Imports
-
-The package also ships focused subpath entry points for advanced usage:
+### Plot 入口
 
 ```js
 import {
@@ -467,37 +397,125 @@ import {
   initialize,
   inferGuides,
   inferScales,
-  applyScales
+  applyScales,
+  renderPlotSpec,
+  renderAISpec,
+  streamPlotSpec,
+  createMockPlotProvider,
+  createOpenAICompatibleProvider,
+  createPlotSpecChunkBuffer,
+  parsePlotSpecResponse,
+  buildProviderRequestConfig,
+  getPlotSpecPromptPreset,
+  listPlotSpecPromptPresets
 } from '@ksj_sparrow/sparrow/plot'
+```
 
+### Guide 入口
+
+```js
 import {
   axisX,
   axisY,
   legendRamp,
   legendSwatches
 } from '@ksj_sparrow/sparrow/guide'
+```
 
+### Views 入口
+
+```js
 import { createViews } from '@ksj_sparrow/sparrow/views'
 ```
 
-These subpaths are useful when you want a narrower public surface instead of
-importing everything from the root package entry.
+## Playground 功能
 
-## Development
+当前 Playground 位于项目首页，主要提供：
 
-Requirements:
+- Prompt 输入和图表尺寸配置。
+- `Mock provider` 与 `OpenAI-compatible` 两种 Provider。
+- `Same-origin proxy` 与 `Direct / relay URL` 两种连接模式。
+- Prompt preset / Skill mode 选择，默认使用仓库内 `sparrow-spec-creator` 规格提示词。
+- 自动布局开关，用于控制多面板图表是否自动平衡。
+- 流式输出查看、实时 JSON 解析、SVG 预览。
+- 重新渲染、停止动画、导出 PNG。
 
-- Node.js 18+
-- pnpm recommended
+## 目录结构
+
+```txt
+src/
+  renderer/      SVG 渲染器、图形、变换和动画
+  coordinate/    笛卡尔、极坐标、转置等坐标变换
+  scale/         连续、离散、时间、分位等比例尺
+  statistic/     bin、stack、normalize、symmetry 等统计变换
+  geometry/      point、line、interval、pie、area 等图元
+  guide/         坐标轴、网格、图例
+  views/         row、col、layer、facet 视图布局
+  plot/          声明式图表语法、AI 规格渲染和 Playground Provider
+  playground/    Playground 辅助能力，例如 PNG 导出
+skills/
+  sparrow-spec-creator/       面向模型生成图表规格的 Skill
+  sparrow-core-contributor/   面向项目开发维护的 Skill
+test/
+  */                           单元测试、图表渲染测试和公开入口测试
+```
+
+## 开发说明
+
+环境要求：
+
+- Node.js `>=18`
+- 推荐使用 pnpm
+
+安装依赖：
 
 ```bash
 pnpm install
-pnpm test
-pnpm build
-pnpm dev
 ```
 
-Build artifacts are generated in `dist/`.
+运行测试：
+
+```bash
+pnpm test
+```
+
+构建库：
+
+```bash
+pnpm build
+```
+
+构建站点：
+
+```bash
+pnpm build:site
+```
+
+## 常见问题
+
+### 模型输出不是合法 JSON 怎么办？
+
+`streamPlotSpec()` 内部使用 `createPlotSpecChunkBuffer()` 增量解析 JSON。Provider 最终必须输出一个合法的 `SparrowPlotSpec` 对象，最好只返回 JSON，或只包一层 `json` 代码块。
+
+### 浏览器直连接口遇到 CORS 怎么办？
+
+推荐使用 `Same-origin proxy`。配置 `.env.local` 中的 `OPENAI_PROXY_TARGET` 和 `OPENAI_API_KEY`，让本地 Vite 代理负责转发请求。
+
+### 多个面板太挤怎么办？
+
+`renderAISpec()` 默认会自动平衡扁平的 `row` / `col` 多面板布局。你也可以通过 `autoLayout: false` 关闭：
+
+```js
+renderAISpec(spec, { autoLayout: false })
+```
+
+### 动画没有播放怎么办？
+
+如果 SVG 渲染时还没有挂载到 DOM，入场动画不会自动播放。可以先挂载 `result.node`，再手动调用：
+
+```js
+result.playAnimations()
+```
 
 ## License
 

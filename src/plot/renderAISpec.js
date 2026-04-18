@@ -2,6 +2,11 @@ import { createRenderer } from '../renderer/renderer.js'
 import { computeFacetViews } from '../views/facet.js'
 import { computeFlexViews } from '../views/flex.js'
 import { computeLayerViews } from '../views/layer.js'
+import {
+  AUTO_LAYOUT_SPACER_TYPE,
+  autoLayoutView,
+  isSpacerNode
+} from './autoLayout.js'
 import { renderPlotSpec } from './renderPlotSpec.js'
 
 const DEFAULT_SIZE = {
@@ -71,6 +76,7 @@ export function renderAISpec(input, options = {}) {
 }
 
 function renderViewNode(node, frame, context) {
+  if (isSpacerNode(node)) return
   if (isViewNode(node)) {
     renderLayoutNode(node, frame, context)
     return
@@ -162,12 +168,14 @@ function normalizeAISpec(input, options) {
     throw new Error('renderAISpec requires a positive root view area.')
   }
 
+  const view = normalizeViewRoot(input.view ?? input)
+
   return {
     width,
     height,
     frame,
     data: input.data,
-    view: normalizeViewRoot(input.view ?? input),
+    view: options.autoLayout === false ? view : autoLayoutView(view, frame),
     container: options.container ?? input.container,
     clear: options.clear ?? true
   }
@@ -209,6 +217,10 @@ function normalizeViewChild(node) {
     throw new Error('View children must be objects.')
   }
 
+  if (isEmptyTextPlaceholder(node)) {
+    return createSpacerNode()
+  }
+
   if (isViewNode(node)) {
     return normalizeViewNode(node)
   }
@@ -220,6 +232,35 @@ function normalizeViewChild(node) {
   throw new Error(
     'View children must be nested views or plot specs with plot, plots, point, line, interval, pie, area, rect, cell, or text.'
   )
+}
+
+function isEmptyTextPlaceholder(node) {
+  const spec =
+    node?.type === 'text'
+      ? node
+      : node?.plot?.type === 'text'
+        ? node.plot
+        : null
+  if (!spec) return false
+
+  const encodings = spec.encodings || {}
+  if (encodings.x || encodings.y) return false
+
+  const data = Array.isArray(spec.data) ? spec.data : []
+  return data.length > 0 && data.every(isEmptyTextDatum)
+}
+
+function isEmptyTextDatum(datum) {
+  if (!datum || typeof datum !== 'object' || Array.isArray(datum)) return false
+  const values = Object.values(datum)
+  return values.length > 0 && values.every((value) => value === '')
+}
+
+function createSpacerNode() {
+  return {
+    type: AUTO_LAYOUT_SPACER_TYPE,
+    __autoLayoutLocked: true
+  }
 }
 
 function materializeLeafSpec(spec, { inheritedData, dataTransform }) {

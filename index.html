@@ -53,6 +53,42 @@
         padding: 32px 0 48px;
       }
 
+      .topbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 18px;
+      }
+
+      .topbar-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 16px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--text);
+        text-decoration: none;
+        backdrop-filter: blur(18px);
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease;
+      }
+
+      .topbar-link:hover {
+        transform: translateY(-1px);
+        border-color: rgba(91, 109, 246, 0.34);
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.12);
+      }
+
+      .topbar-link svg {
+        width: 16px;
+        height: 16px;
+      }
+
       .hero {
         display: grid;
         grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
@@ -427,6 +463,27 @@
   </head>
   <body>
     <div class="shell">
+      <div class="topbar">
+        <a
+          class="topbar-link"
+          href="https://github.com/nihaokkjj/sparrow"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open Sparrow GitHub repository"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.38 7.86 10.9.57.11.78-.25.78-.55 0-.27-.01-1.16-.02-2.1-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.71.08-.7.08-.7 1.16.08 1.78 1.2 1.78 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.53-2.56-.29-5.25-1.28-5.25-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.45.11-3.02 0 0 .96-.31 3.14 1.18a10.9 10.9 0 0 1 5.72 0c2.17-1.49 3.13-1.18 3.13-1.18.62 1.57.23 2.73.11 3.02.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.68.41.36.78 1.08.78 2.19 0 1.58-.01 2.85-.01 3.24 0 .3.2.67.79.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+            />
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+
       <section class="hero">
         <div>
           <div class="eyebrow">Sparrow · AI 演示台</div>
@@ -479,6 +536,23 @@
                 max="2000"
                 style="width: 100%"
               />
+            </div>
+          </div>
+
+          <div class="field toggle-field">
+            <label class="toggle-control" for="autoLayout">
+              <input
+                id="autoLayout"
+                name="autoLayout"
+                type="checkbox"
+                checked
+              />
+              <span>Auto-balance multi-panel layout</span>
+            </label>
+            <div class="hint">
+              Keep this on to let <code>renderAISpec()</code> rebalance crowded
+              flat row/col specs into a near-square grid based on canvas size.
+              Turn it off to preserve the model's original layout exactly.
             </div>
           </div>
 
@@ -668,7 +742,7 @@
 
       <p class="footer">
         提示：在当前目录运行 <code>pnpm dev</code>，然后打开
-        <code>/playground.html</code>。
+        <code>/</code>。
       </p>
     </div>
     <script type="module" src="/src/playground-page.js"></script>

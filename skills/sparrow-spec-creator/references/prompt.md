@@ -178,6 +178,9 @@ Only use these `view.type` values:
 - Prefer `plots` over `view.type = "layer"` when the chart is just a layered composition in one panel.
 - Use `facet` when the same child chart should repeat over grouped data.
 - Do not use `plots` to place multiple separate pie charts side by side; that should be a `view` layout.
+- When a request asks for many independent panels without an explicit direction, prefer a near-square nested `row`/`col` layout over a very long single strip.
+- If a single `row` or `col` would make child plot areas too small, rebalance the children into nested `row`/`col` groups before finishing.
+- Do not create empty `text`, `point`, `rect`, or other marks as layout placeholders. Use only real charts in the JSON; the runtime can handle spacing for incomplete rows.
 
 ## Conservative defaults
 

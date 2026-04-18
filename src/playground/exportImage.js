@@ -9,6 +9,7 @@ export async function exportSpecAsPNG(spec, options = {}) {
     background = DEFAULT_BACKGROUND,
     filename = DEFAULT_FILENAME,
     height,
+    autoLayout,
     render = renderAISpec,
     scale = DEFAULT_SCALE,
     width,
@@ -22,6 +23,7 @@ export async function exportSpecAsPNG(spec, options = {}) {
   const exportSpec = createExportSpec(spec, { width, height })
   const dimensions = getExportDimensions(exportSpec, { width, height })
   const result = render(exportSpec, {
+    autoLayout,
     autoplay: false,
     width: dimensions.width,
     height: dimensions.height

@@ -83,6 +83,7 @@ test('exportSpecAsPNG() renders a static SVG and downloads a PNG', async () => {
       }
     },
     {
+      autoLayout: false,
       createAnchor: () => anchor,
       createCanvas: () => canvas,
       createImage,
@@ -98,7 +99,12 @@ test('exportSpecAsPNG() renders a static SVG and downloads a PNG', async () => {
 
   expect(render).toHaveBeenCalledWith(
     expect.objectContaining({ width: 320, height: 240 }),
-    expect.objectContaining({ autoplay: false, width: 320, height: 240 })
+    expect.objectContaining({
+      autoLayout: false,
+      autoplay: false,
+      width: 320,
+      height: 240
+    })
   )
   expect(canvas.width).toBe(960)
   expect(canvas.height).toBe(720)
