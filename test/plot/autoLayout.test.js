@@ -137,6 +137,55 @@ test('renderAISpec() supports disabling auto layout via render options', () => {
   )
 })
 
+test('renderAISpec() normalizes nested grid rows to equal cell sizes', () => {
+  const pie = (value) => ({
+    type: 'pie',
+    data: [
+      { category: 'A', value },
+      { category: 'B', value: 100 - value }
+    ],
+    encodings: {
+      angle: 'value',
+      fill: 'category'
+    },
+    guides: false
+  })
+
+  const result = renderAISpec({
+    width: 640,
+    height: 480,
+    view: {
+      type: 'col',
+      padding: 16,
+      children: [
+        {
+          type: 'row',
+          padding: 16,
+          children: [pie(28), pie(16)]
+        },
+        {
+          type: 'row',
+          padding: 16,
+          children: [pie(25), pie(30), pie(12)]
+        }
+      ]
+    }
+  })
+
+  const widths = new Set(result.views.map(({ view }) => Math.round(view.width)))
+  const heights = new Set(
+    result.views.map(({ view }) => Math.round(view.height))
+  )
+
+  expect(result.views).toHaveLength(5)
+  expect(result.view.children[0].children).toHaveLength(3)
+  expect(result.view.children[0].children[0].type).toBe(
+    AUTO_LAYOUT_SPACER_TYPE
+  )
+  expect(widths.size).toBe(1)
+  expect(heights.size).toBe(1)
+})
+
 test('renderAISpec() treats empty text view children as spacer placeholders', () => {
   const pie = (value) => ({
     type: 'pie',

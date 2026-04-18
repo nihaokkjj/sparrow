@@ -1,5 +1,6 @@
 import { computeFacetViews } from '../views/facet.js'
 import { computeFlexViews } from '../views/flex.js'
+import { DEFAULT_VIEW_GAP, resolveViewGap } from '../views/gap.js'
 import { computeLayerViews } from '../views/layer.js'
 
 const VIEW_TYPES = new Set(['row', 'col', 'layer', 'facet'])
@@ -21,7 +22,6 @@ const VIEW_COMPUTES = {
   facet: computeFacetViews
 }
 
-const DEFAULT_VIEW_GAP = 40
 const DEFAULT_CHILD_PADDING = {
   top: 24,
   right: 96,
@@ -39,7 +39,7 @@ export const AUTO_LAYOUT_SPACER_TYPE = '__sparrow_auto_layout_spacer__'
 export function autoLayoutView(view, frame) {
   if (!isViewNode(view)) return view
 
-  const next = maybeAutoLayoutNode(view, frame)
+  const next = maybeNormalizeUniformGridNode(maybeAutoLayoutNode(view, frame))
   if (next.type === 'facet') {
     const facetViews = VIEW_COMPUTES.facet(frame, next)
     const sampleFrame = facetViews[0] || frame
@@ -67,8 +67,9 @@ export function choosePrimeGridLayout({
   width,
   height,
   n,
-  gapX = DEFAULT_VIEW_GAP,
-  gapY = DEFAULT_VIEW_GAP,
+  gapX,
+  gapY,
+  padding,
   outerPadding = { top: 0, right: 0, bottom: 0, left: 0 },
   childPadding = DEFAULT_CHILD_PADDING,
   guideReserve = { top: 0, right: 0, bottom: 0, left: 0 },
@@ -88,8 +89,22 @@ export function choosePrimeGridLayout({
   for (let rows = 1; rows <= n; rows += 1) {
     const cols = Math.ceil(n / rows)
     const countsPerRow = distributeCountsSymmetrically(n, rows, cols)
-    const cellWidth = (availableWidth - (cols - 1) * gapX) / cols
-    const cellHeight = (availableHeight - (rows - 1) * gapY) / rows
+    const resolvedGapX = resolveCandidateGap({
+      gap: gapX,
+      padding,
+      mainSize: availableWidth,
+      crossSize: availableHeight,
+      slots: cols
+    })
+    const resolvedGapY = resolveCandidateGap({
+      gap: gapY,
+      padding,
+      mainSize: availableHeight,
+      crossSize: availableWidth,
+      slots: rows
+    })
+    const cellWidth = (availableWidth - (cols - 1) * resolvedGapX) / cols
+    const cellHeight = (availableHeight - (rows - 1) * resolvedGapY) / rows
     const plotWidth =
       cellWidth -
       childPadding.left -
@@ -109,6 +124,8 @@ export function choosePrimeGridLayout({
       rows,
       cols,
       countsPerRow,
+      gapX: resolvedGapX,
+      gapY: resolvedGapY,
       cellWidth,
       cellHeight,
       plotWidth,
@@ -193,14 +210,12 @@ export function isSpacerNode(node) {
 function maybeAutoLayoutNode(node, frame) {
   if (!isAutoLayoutEligible(node)) return node
 
-  const gap = normalizeGap(node.padding)
   const childPadding = estimateChildPadding(node.children)
   const best = choosePrimeGridLayout({
     width: frame.width,
     height: frame.height,
     n: node.children.length,
-    gapX: gap,
-    gapY: gap,
+    padding: node.padding,
     childPadding
   })
 
@@ -215,8 +230,8 @@ function maybeAutoLayoutNode(node, frame) {
   }
 
   const next = buildNestedRowColView(node.children, best, {
-    rowGap: gap,
-    colGap: gap
+    rowGap: best.gapY,
+    colGap: best.gapX
   })
 
   return {
@@ -225,6 +240,32 @@ function maybeAutoLayoutNode(node, frame) {
     padding: next.padding,
     __autoLayoutLocked: true,
     children: next.children
+  }
+}
+
+function maybeNormalizeUniformGridNode(node) {
+  if (!isUniformGridNormalizationEligible(node)) return node
+
+  const targetSlots = Math.max(
+    ...node.children.map((child) => child.children.length)
+  )
+  if (
+    !Number.isFinite(targetSlots) ||
+    node.children.every((child) => child.children.length === targetSlots)
+  ) {
+    return node
+  }
+
+  return {
+    ...node,
+    children: node.children.map((child) =>
+      child.children.length === targetSlots
+        ? child
+        : {
+            ...child,
+            children: injectCenteredSpacers(child.children, targetSlots)
+          }
+    )
   }
 }
 
@@ -239,6 +280,23 @@ function isAutoLayoutEligible(node) {
       Array.isArray(node.children) &&
       node.children.length >= AUTO_LAYOUT_MIN_CHILDREN &&
       node.children.every((child) => isPlotLikeSpec(child))
+  )
+}
+
+function isUniformGridNormalizationEligible(node) {
+  const innerType =
+    node?.type === 'col' ? 'row' : node?.type === 'row' ? 'col' : null
+  if (!innerType) return false
+
+  return Boolean(
+    node &&
+      node.__autoLayoutLocked !== true &&
+      node.autoLayout !== false &&
+      node?.layout?.auto !== false &&
+      node.flex === undefined &&
+      Array.isArray(node.children) &&
+      node.children.length >= 2 &&
+      node.children.every((child) => isGridAxisGroup(child, innerType))
   )
 }
 
@@ -356,12 +414,30 @@ function normalizeChildPadding(padding) {
   }
 }
 
-function normalizeGap(value) {
-  return Number.isFinite(value) && value >= 0 ? value : DEFAULT_VIEW_GAP
+function resolveCandidateGap({ gap, padding, mainSize, crossSize, slots }) {
+  if (Number.isFinite(gap) && gap >= 0) return gap
+
+  return resolveViewGap({
+    padding,
+    mainSize,
+    crossSize,
+    slots
+  })
 }
 
 function isViewNode(node) {
   return Boolean(node && typeof node === 'object' && VIEW_TYPES.has(node.type))
+}
+
+function isGridAxisGroup(node, type) {
+  return Boolean(
+    node &&
+      node.type === type &&
+      node.flex === undefined &&
+      Array.isArray(node.children) &&
+      node.children.length > 0 &&
+      node.children.every((child) => isPlotLikeSpec(child) || isSpacerNode(child))
+  )
 }
 
 function isPlotLikeSpec(node) {

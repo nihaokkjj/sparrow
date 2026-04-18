@@ -40,3 +40,22 @@ test('computeFlexViews for col stacks children vertically', () => {
   expect(bottom.x).toBe(0)
   expect(bottom.width).toBe(300)
 })
+
+test('computeFlexViews uses an adaptive default gap when padding is omitted', () => {
+  const box = { x: 0, y: 0, width: 640, height: 480 }
+  const two = computeFlexViews(box, {
+    type: 'row',
+    children: [{}, {}]
+  })
+  const six = computeFlexViews(box, {
+    type: 'row',
+    children: [{}, {}, {}, {}, {}, {}]
+  })
+
+  const gapForTwo = two[1].x - (two[0].x + two[0].width)
+  const gapForSix = six[1].x - (six[0].x + six[0].width)
+
+  expect(gapForTwo).toBeGreaterThan(gapForSix)
+  expect(gapForTwo).toBeGreaterThan(0)
+  expect(gapForSix).toBeGreaterThan(0)
+})

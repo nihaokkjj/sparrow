@@ -10,6 +10,8 @@ export const MINIMAL_PLOT_SPEC_SYSTEM_PROMPT = [
   'In view.children, nested views must be direct objects with type and children. Do not wrap nested views inside { "view": { ... } }.',
   'View children may be nested view nodes, { plot: {...} }, { plots: [...] }, or direct leaf mark specs.',
   'When many independent panels are requested without an explicit direction, prefer a near-square nested row/col layout instead of a long strip.',
+  'When using nested row/col grids without explicit sizing, keep sibling grid rows or columns on equal slots so panels render at the same size.',
+  'If the user does not specify a panel gap, let the runtime choose an adaptive gap instead of hard-coding placeholder spacing.',
   'Do not use empty text, point, rect, or other marks as layout placeholders.',
   'Only use mark types point, line, interval, pie, area, rect, cell, and text.',
   'Leaf plot data must be arrays of plain JSON objects.',
@@ -30,14 +32,14 @@ export const PLOT_SPEC_PROMPT_PRESETS = Object.freeze({
     id: DEFAULT_PLOT_SPEC_PROMPT_PRESET,
     label: 'Skill: sparrow-spec-creator',
     description:
-      'Use the repo skill contract with supported marks, layouts, defaults, and JSON self-check rules.',
+      '使用仓库 Skill 约束，包含支持的图形、布局、默认值和 JSON 自检规则。',
     systemPrompt: SPARROW_SPEC_CREATOR_SYSTEM_PROMPT
   }),
   'default-minimal': Object.freeze({
     id: 'default-minimal',
-    label: 'Minimal JSON contract',
+    label: 'Minimal JSON Contract',
     description:
-      'Use the older compact prompt with only the core Sparrow JSON constraints.',
+      '使用较早的精简 prompt，只包含核心 Sparrow JSON 约束。',
     systemPrompt: MINIMAL_PLOT_SPEC_SYSTEM_PROMPT
   })
 })

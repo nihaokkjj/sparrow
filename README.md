@@ -208,6 +208,16 @@ OPENAI_PROXY_TARGET=https://api.openai.com/v1
 OPENAI_API_KEY=sk-...
 ```
 
+生产部署到 Vercel 时，建议在项目环境变量里额外配置代理保护：
+
+```bash
+OPENAI_PROXY_ALLOWED_ORIGINS=https://your-domain.com,https://www.your-domain.com
+OPENAI_PROXY_RATE_LIMIT_MAX=20
+OPENAI_PROXY_RATE_LIMIT_WINDOW_MS=60000
+```
+
+`OPENAI_PROXY_ALLOWED_ORIGINS` 留空时保持兼容旧行为；配置后只允许这些 Origin 调用 `/api/openai`。内置限流是 Vercel 函数实例内存级别的基础保护，适合挡普通误用；如果需要严格全局配额，建议接入 KV / Redis 这类集中式存储。
+
 也可以把代理指向自己的中转服务：
 
 ```bash

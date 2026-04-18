@@ -21,6 +21,10 @@ const BROWSER_ONLY_HEADERS = new Set([
   'sec-fetch-site',
   'sec-fetch-user'
 ])
+const DEFAULT_RATE_LIMIT_MAX = 20
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000
+const rateLimitStore = new Map()
+let lastRateLimitPruneAt = 0
 
 export const config = {
   maxDuration: 60
@@ -28,11 +32,27 @@ export const config = {
 
 export default {
   async fetch(request) {
+    const corsOptions = resolveCorsOptions(request)
+
     if (request.method === 'OPTIONS') {
       return new Response(null, {
-        status: 204,
-        headers: corsHeaders()
+        status: corsOptions.allowed ? 204 : 403,
+        headers: corsHeaders(corsOptions)
       })
+    }
+
+    if (!corsOptions.allowed) {
+      return jsonError('Origin is not allowed.', 403, corsOptions)
+    }
+
+    const rateLimit = checkRateLimit(request)
+    if (!rateLimit.allowed) {
+      return jsonError(
+        'Rate limit exceeded. Please try again later.',
+        429,
+        corsOptions,
+        rateLimit.headers
+      )
     }
 
     const url = new URL(request.url)
@@ -46,19 +66,31 @@ export default {
     if (targetOverride && !request.headers.has('authorization')) {
       return jsonError(
         'Authorization is required when using a runtime proxy target.',
-        401
+        401,
+        corsOptions,
+        rateLimit.headers
       )
     }
 
     if (targetOverride && !isAllowedRuntimeTarget(targetOverride, request)) {
-      return jsonError('Proxy target is not in OPENAI_PROXY_ALLOWLIST.', 403)
+      return jsonError(
+        'Proxy target is not in OPENAI_PROXY_ALLOWLIST.',
+        403,
+        corsOptions,
+        rateLimit.headers
+      )
     }
 
     let upstreamURL
     try {
       upstreamURL = buildUpstreamURL(targetBaseURL, resourcePath, url.search)
     } catch (error) {
-      return jsonError(error?.message || 'Invalid proxy target.', 400)
+      return jsonError(
+        error?.message || 'Invalid proxy target.',
+        400,
+        corsOptions,
+        rateLimit.headers
+      )
     }
 
     try {
@@ -72,10 +104,19 @@ export default {
       return new Response(upstreamResponse.body, {
         status: upstreamResponse.status,
         statusText: upstreamResponse.statusText,
-        headers: createResponseHeaders(upstreamResponse.headers)
+        headers: createResponseHeaders(
+          upstreamResponse.headers,
+          corsOptions,
+          rateLimit.headers
+        )
       })
     } catch (error) {
-      return jsonError(error?.message || 'Proxy request failed.', 502)
+      return jsonError(
+        error?.message || 'Proxy request failed.',
+        502,
+        corsOptions,
+        rateLimit.headers
+      )
     }
   }
 }
@@ -176,8 +217,8 @@ function createUpstreamHeaders(requestHeaders) {
   return headers
 }
 
-function createResponseHeaders(upstreamHeaders) {
-  const headers = new Headers(corsHeaders())
+function createResponseHeaders(upstreamHeaders, corsOptions, extraHeaders) {
+  const headers = new Headers(corsHeaders(corsOptions))
 
   for (const [name, value] of upstreamHeaders.entries()) {
     const normalizedName = name.toLowerCase()
@@ -185,28 +226,158 @@ function createResponseHeaders(upstreamHeaders) {
     headers.set(name, value)
   }
 
-  return headers
+  return mergeHeaders(headers, extraHeaders)
 }
 
-function corsHeaders() {
+function resolveCorsOptions(request) {
+  const allowedOrigins = getAllowedOrigins()
+  if (allowedOrigins.length === 0) {
+    return {
+      allowed: true,
+      origin: request.headers.get('origin') || '*'
+    }
+  }
+
+  const origin = request.headers.get('origin')
   return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, X-Sparrow-Proxy-Target'
+    allowed: Boolean(origin && allowedOrigins.includes(origin)),
+    origin
   }
 }
 
-function jsonError(message, status) {
+function getAllowedOrigins() {
+  return String(process.env.OPENAI_PROXY_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+}
+
+function corsHeaders({ allowed, origin } = {}) {
+  const headers = {
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, X-Sparrow-Proxy-Target',
+    Vary: 'Origin'
+  }
+
+  if (allowed && origin) {
+    headers['Access-Control-Allow-Origin'] = origin
+  }
+
+  return headers
+}
+
+function jsonError(message, status, corsOptions, extraHeaders) {
   return Response.json(
     { error: message },
     {
       status,
-      headers: corsHeaders()
+      headers: mergeHeaders(corsHeaders(corsOptions), extraHeaders)
     }
   )
 }
 
 function allowsRequestBody(method) {
   return !['GET', 'HEAD'].includes(String(method || 'GET').toUpperCase())
+}
+
+function checkRateLimit(request) {
+  const limit = readNonNegativeInteger(
+    process.env.OPENAI_PROXY_RATE_LIMIT_MAX,
+    DEFAULT_RATE_LIMIT_MAX
+  )
+  if (limit <= 0) {
+    return {
+      allowed: true,
+      headers: {}
+    }
+  }
+
+  const windowMs = readPositiveInteger(
+    process.env.OPENAI_PROXY_RATE_LIMIT_WINDOW_MS,
+    DEFAULT_RATE_LIMIT_WINDOW_MS
+  )
+  const now = Date.now()
+  pruneRateLimitStore(now)
+
+  const key = getClientKey(request)
+  const current = rateLimitStore.get(key)
+  const entry =
+    current && current.resetAt > now
+      ? current
+      : {
+          count: 0,
+          resetAt: now + windowMs
+        }
+
+  entry.count += 1
+  rateLimitStore.set(key, entry)
+
+  const remaining = Math.max(limit - entry.count, 0)
+  const resetSeconds = Math.ceil(entry.resetAt / 1000)
+  const headers = {
+    'X-RateLimit-Limit': String(limit),
+    'X-RateLimit-Remaining': String(remaining),
+    'X-RateLimit-Reset': String(resetSeconds)
+  }
+
+  if (entry.count > limit) {
+    headers['Retry-After'] = String(Math.ceil((entry.resetAt - now) / 1000))
+    return {
+      allowed: false,
+      headers
+    }
+  }
+
+  return {
+    allowed: true,
+    headers
+  }
+}
+
+function getClientKey(request) {
+  return getClientIP(request) || 'unknown'
+}
+
+function getClientIP(request) {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+
+  return (
+    request.headers.get('x-real-ip') ||
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('true-client-ip') ||
+    ''
+  )
+}
+
+function pruneRateLimitStore(now) {
+  if (now - lastRateLimitPruneAt < DEFAULT_RATE_LIMIT_WINDOW_MS) return
+  lastRateLimitPruneAt = now
+
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(key)
+    }
+  }
+}
+
+function readPositiveInteger(value, fallback) {
+  const number = Number.parseInt(value, 10)
+  return Number.isFinite(number) && number > 0 ? number : fallback
+}
+
+function readNonNegativeInteger(value, fallback) {
+  const number = Number.parseInt(value, 10)
+  return Number.isFinite(number) && number >= 0 ? number : fallback
+}
+
+function mergeHeaders(baseHeaders, extraHeaders) {
+  const headers = new Headers(baseHeaders)
+  Object.entries(extraHeaders || {}).forEach(([name, value]) => {
+    headers.set(name, value)
+  })
+  return headers
 }

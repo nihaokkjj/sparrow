@@ -1,6 +1,8 @@
 import { expect, test, vi } from 'vitest'
 import {
+  assembleAPNG,
   createExportSpec,
+  estimateAnimationDuration,
   exportSpecAsPNG,
   serializeSVG
 } from '../../src/playground/exportImage.js'
@@ -124,3 +126,125 @@ test('exportSpecAsPNG() renders a static SVG and downloads a PNG', async () => {
   expect(revokeObjectURL).toHaveBeenCalledWith('blob:png')
   expect(createdURLs).toEqual(['blob:svg', 'blob:png'])
 })
+
+test('estimateAnimationDuration() includes per-mark stagger time', () => {
+  expect(
+    estimateAnimationDuration({
+      plots: [
+        {
+          animation: {
+            enter: {
+              delay: 80,
+              duration: 400,
+              stagger: 60
+            }
+          },
+          marks: [{}, {}, {}]
+        },
+        {
+          animation: {
+            enter: {
+              delay: 40,
+              duration: 700
+            }
+          },
+          marks: [{}]
+        }
+      ]
+    })
+  ).toBe(740)
+})
+
+test('assembleAPNG() wraps PNG frames with APNG animation chunks', () => {
+  const frameA = createMockPNGFrame(Uint8Array.from([1, 2, 3]))
+  const frameB = createMockPNGFrame(Uint8Array.from([4, 5, 6]))
+
+  const apng = assembleAPNG([frameA, frameB], [80, 120], { plays: 0 })
+  const chunkTypes = readChunkTypes(apng)
+  const acTLChunk = readChunkData(apng, 'acTL')
+
+  expect(chunkTypes).toEqual([
+    'IHDR',
+    'acTL',
+    'fcTL',
+    'IDAT',
+    'fcTL',
+    'fdAT',
+    'IEND'
+  ])
+  expect(readUint32(acTLChunk, 0)).toBe(2)
+  expect(readUint32(acTLChunk, 4)).toBe(0)
+})
+
+function createMockPNGFrame(idatData) {
+  return concatBytes(
+    Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10),
+    createMockChunk(
+      'IHDR',
+      Uint8Array.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0])
+    ),
+    createMockChunk('IDAT', idatData),
+    createMockChunk('IEND', new Uint8Array(0))
+  )
+}
+
+function createMockChunk(type, data) {
+  const chunk = new Uint8Array(12 + data.length)
+  const view = new DataView(chunk.buffer)
+
+  view.setUint32(0, data.length)
+  chunk.set(
+    Uint8Array.from(String(type).split('').map((char) => char.charCodeAt(0))),
+    4
+  )
+  chunk.set(data, 8)
+  return chunk
+}
+
+function concatBytes(...parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0)
+  const merged = new Uint8Array(total)
+  let offset = 0
+
+  parts.forEach((part) => {
+    merged.set(part, offset)
+    offset += part.length
+  })
+
+  return merged
+}
+
+function readChunkTypes(bytes) {
+  const types = []
+  let offset = 8
+
+  while (offset + 12 <= bytes.length) {
+    const length = readUint32(bytes, offset)
+    const type = String.fromCharCode(...bytes.slice(offset + 4, offset + 8))
+    types.push(type)
+    offset += 12 + length
+    if (type === 'IEND') break
+  }
+
+  return types
+}
+
+function readChunkData(bytes, targetType) {
+  let offset = 8
+
+  while (offset + 12 <= bytes.length) {
+    const length = readUint32(bytes, offset)
+    const type = String.fromCharCode(...bytes.slice(offset + 4, offset + 8))
+    const data = bytes.slice(offset + 8, offset + 8 + length)
+    if (type === targetType) return data
+    offset += 12 + length
+  }
+
+  return null
+}
+
+function readUint32(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
+    offset
+  )
+}
