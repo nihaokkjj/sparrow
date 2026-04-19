@@ -79,13 +79,34 @@ test('Vercel proxy rate limits repeated requests from the same IP', async () => 
   expect(globalThis.fetch).toHaveBeenCalledTimes(2)
 })
 
-function createProxyRequest({ origin, ip }) {
+test('Vercel proxy allows the official OpenAI target as a built-in safe runtime target', async () => {
+  process.env.OPENAI_ALLOW_USER_PROXY_TARGETS = 'false'
+
+  const response = await openAIProxy.fetch(
+    createProxyRequest({
+      origin: 'https://sparrow.example',
+      ip: '203.0.113.13',
+      headers: {
+        authorization: 'Bearer user-key',
+        'x-sparrow-proxy-target': 'https://api.openai.com/v1'
+      }
+    })
+  )
+
+  expect(response.status).toBe(200)
+  expect(String(globalThis.fetch.mock.calls[0][0])).toBe(
+    'https://api.openai.com/v1/chat/completions'
+  )
+})
+
+function createProxyRequest({ origin, ip, headers = {} }) {
   return new Request('https://sparrow.example/api/openai/chat/completions', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       origin,
-      'x-forwarded-for': ip
+      'x-forwarded-for': ip,
+      ...headers
     },
     body: JSON.stringify({
       model: 'glm-4.7-flash',

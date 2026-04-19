@@ -25,11 +25,15 @@ export {
 export {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
+  DEFAULT_PLAYGROUND_OPENAI_MODEL,
+  DEFAULT_PLAYGROUND_PROVIDER,
   DEFAULT_OPENAI_PROXY_PATH,
   OPENAI_PROXY_TARGET_HEADER,
   buildOpenAICompatibleRequestURL,
   buildProviderRequestConfig,
   buildProxyTargetURL,
   getDefaultPlaygroundProviderSettings,
+  getPlaygroundProviderProfile,
+  normalizePlaygroundProvider,
   normalizeProxyPath
 } from './providerConfig.js'

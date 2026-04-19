@@ -1,7 +1,66 @@
 export const DEFAULT_OPENAI_PROXY_PATH = '/api/openai'
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_OPENAI_MODEL = 'glm-5'
+export const DEFAULT_PLAYGROUND_PROVIDER = 'zhipu'
+export const DEFAULT_PLAYGROUND_OPENAI_MODEL = 'gpt-4.1-mini'
 export const OPENAI_PROXY_TARGET_HEADER = 'X-Sparrow-Proxy-Target'
+
+export function normalizePlaygroundProvider(value) {
+  return String(value || '').trim() === 'openai'
+    ? 'openai'
+    : DEFAULT_PLAYGROUND_PROVIDER
+}
+
+export function getPlaygroundProviderProfile(
+  provider = DEFAULT_PLAYGROUND_PROVIDER,
+  env = {}
+) {
+  const normalizedProvider = normalizePlaygroundProvider(provider)
+
+  if (normalizedProvider === 'openai') {
+    return {
+      id: 'openai',
+      label: 'OpenAI',
+      connectionMode:
+        env.VITE_PLAYGROUND_OPENAI_CONNECTION_MODE === 'direct'
+          ? 'direct'
+          : 'proxy',
+      targetBaseURL:
+        String(
+          env.VITE_PLAYGROUND_OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL
+        ).trim() || DEFAULT_OPENAI_BASE_URL,
+      model:
+        String(
+          env.VITE_PLAYGROUND_OPENAI_MODEL || DEFAULT_PLAYGROUND_OPENAI_MODEL
+        ).trim() || DEFAULT_PLAYGROUND_OPENAI_MODEL,
+      directTargetPlaceholder:
+        'https://api.openai.com/v1 或其他允许 CORS 的 relay URL',
+      proxyTargetPlaceholder:
+        '留空则使用 OpenAI 官方 Base URL；代理模式下请填写你自己的 API Key',
+      directHint:
+        'Direct 模式会由浏览器直接请求目标地址。OpenAI 官方接口通常不建议浏览器直连，建议优先使用 proxy 或支持 CORS 的 relay URL。',
+      proxyHint:
+        'Proxy 模式会先请求 /api/openai，再转发到 OpenAI 官方接口或兼容端点。切到 OpenAI 时，请填写你自己的 API Key。'
+    }
+  }
+
+  return {
+    id: DEFAULT_PLAYGROUND_PROVIDER,
+    label: '智谱 AI（已配置）',
+    connectionMode:
+      env.VITE_OPENAI_CONNECTION_MODE === 'direct' ? 'direct' : 'proxy',
+    targetBaseURL: String(env.VITE_OPENAI_BASE_URL || '').trim(),
+    model:
+      String(env.VITE_OPENAI_MODEL || DEFAULT_OPENAI_MODEL).trim() ||
+      DEFAULT_OPENAI_MODEL,
+    directTargetPlaceholder: 'https://open.bigmodel.cn/api/paas/v4 或其他兼容端点',
+    proxyTargetPlaceholder: '留空则使用服务端已配置的智谱目标地址',
+    directHint:
+      'Direct 模式会由浏览器直接请求目标地址，因此目标接口必须允许 CORS；此时请使用你自己的 API Key。',
+    proxyHint:
+      'Proxy 模式会先请求 /api/openai。Target Base URL 和 API Key 都留空时，将使用服务端已配置的智谱设置。'
+  }
+}
 
 export function normalizeProxyPath(value) {
   const normalized = String(value || '').trim()
@@ -65,17 +124,18 @@ export function buildProviderRequestConfig({
   }
 }
 
-export function getDefaultPlaygroundProviderSettings(env = {}) {
+export function getDefaultPlaygroundProviderSettings(
+  env = {},
+  provider = DEFAULT_PLAYGROUND_PROVIDER
+) {
+  const profile = getPlaygroundProviderProfile(provider, env)
   return {
-    connectionMode:
-      env.VITE_OPENAI_CONNECTION_MODE === 'direct' ? 'direct' : 'proxy',
+    connectionMode: profile.connectionMode,
     proxyBaseURL: normalizeProxyPath(
       env.VITE_OPENAI_PROXY_PATH || DEFAULT_OPENAI_PROXY_PATH
     ),
-    targetBaseURL: String(env.VITE_OPENAI_BASE_URL || '').trim(),
-    model:
-      String(env.VITE_OPENAI_MODEL || DEFAULT_OPENAI_MODEL).trim() ||
-      DEFAULT_OPENAI_MODEL
+    targetBaseURL: profile.targetBaseURL,
+    model: profile.model
   }
 }
 

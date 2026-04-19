@@ -1,6 +1,7 @@
 import { DEFAULT_OPENAI_BASE_URL } from '../src/plot/providerConfig.js'
 
 const PROXY_TARGET_HEADER = 'x-sparrow-proxy-target'
+const ALWAYS_ALLOWED_PROXY_TARGETS = [DEFAULT_OPENAI_BASE_URL]
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'content-length',
@@ -159,12 +160,12 @@ function isAllowedRuntimeTarget(targetBaseURL, request) {
 
   if (process.env.OPENAI_ALLOW_ANY_PROXY_TARGET === 'true') return true
 
-  const allowlist = String(
-    process.env.OPENAI_PROXY_ALLOWLIST ||
-      process.env.OPENAI_PROXY_TARGET ||
-      DEFAULT_OPENAI_BASE_URL
-  )
-    .split(',')
+  const allowlist = [
+    ...ALWAYS_ALLOWED_PROXY_TARGETS,
+    process.env.OPENAI_PROXY_TARGET,
+    process.env.OPENAI_PROXY_ALLOWLIST
+  ]
+    .flatMap((item) => String(item || '').split(','))
     .map((item) => item.trim())
     .filter(Boolean)
 

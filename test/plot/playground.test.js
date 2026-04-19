@@ -9,10 +9,14 @@ import {
   streamPlotSpec
 } from '../../src/plot/playground.js'
 import {
+  DEFAULT_PLAYGROUND_PROVIDER,
   OPENAI_PROXY_TARGET_HEADER,
   buildOpenAICompatibleRequestURL,
   buildProviderRequestConfig,
-  buildProxyTargetURL
+  buildProxyTargetURL,
+  getDefaultPlaygroundProviderSettings,
+  getPlaygroundProviderProfile,
+  normalizePlaygroundProvider
 } from '../../src/plot/providerConfig.js'
 
 test('createPlotSpecMessages() instructs the model to output SparrowPlotSpec JSON', () => {
@@ -220,6 +224,25 @@ test('buildProviderRequestConfig() adds a proxy target header only in proxy mode
     baseURL: 'https://api.openai.com/v1',
     headers: {}
   })
+})
+
+test('normalizePlaygroundProvider() falls back to zhipu for unknown values', () => {
+  expect(normalizePlaygroundProvider('openai')).toBe('openai')
+  expect(normalizePlaygroundProvider('something-else')).toBe(
+    DEFAULT_PLAYGROUND_PROVIDER
+  )
+})
+
+test('getDefaultPlaygroundProviderSettings() returns provider-specific defaults', () => {
+  expect(getDefaultPlaygroundProviderSettings({}, 'openai')).toMatchObject({
+    connectionMode: 'proxy',
+    targetBaseURL: 'https://api.openai.com/v1',
+    model: 'gpt-4.1-mini'
+  })
+
+  expect(getPlaygroundProviderProfile('openai').proxyHint).toContain(
+    '/api/openai'
+  )
 })
 
 test('buildProxyTargetURL() resolves a same-origin proxy request to the chosen target', () => {
