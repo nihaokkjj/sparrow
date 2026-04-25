@@ -64,8 +64,9 @@
     "prepublishOnly": "run-s test build"
   },
   "lint-staged": {
-    "*.js": [
-      "eslint --fix"
+    "*.{js,jsx,ts,tsx,json,css,html}": [
+      "eslint --fix",
+      "prettier --write"
     ]
   },
   "devDependencies": {
