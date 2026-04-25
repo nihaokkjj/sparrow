@@ -1,861 +1,1024 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sparrow AI 演示台</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f3f7fc;
-        --bg-soft: rgba(255, 255, 255, 0.84);
-        --line: rgba(148, 163, 184, 0.24);
-        --text: #132238;
-        --muted: #64748b;
-        --accent: #5b6df6;
-        --success: #15803d;
-        --danger: #dc2626;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family:
-          Inter,
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          'Segoe UI',
-          sans-serif;
-        background:
-          radial-gradient(
-            circle at top left,
-            rgba(96, 165, 250, 0.18),
-            transparent 32%
-          ),
-          radial-gradient(
-            circle at top right,
-            rgba(139, 92, 246, 0.14),
-            transparent 28%
-          ),
-          linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
-        color: var(--text);
-        min-height: 100vh;
-      }
-
-      .shell {
-        width: min(1400px, calc(100vw - 48px));
-        margin: 0 auto;
-        padding: 32px 0 48px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 18px;
-      }
-
-      .topbar-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 11px 16px;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(255, 255, 255, 0.78);
-        color: var(--text);
-        text-decoration: none;
-        backdrop-filter: blur(18px);
-        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
-        transition:
-          transform 160ms ease,
-          box-shadow 160ms ease,
-          border-color 160ms ease,
-          background 160ms ease;
-      }
-
-      .topbar-link:hover {
-        transform: translateY(-1px);
-        border-color: rgba(91, 109, 246, 0.34);
-        background: rgba(255, 255, 255, 0.92);
-        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.12);
-      }
-
-      .topbar-link svg {
-        width: 16px;
-        height: 16px;
-      }
-
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-        gap: 28px;
-        align-items: end;
-        margin-bottom: 28px;
-      }
-
-      .eyebrow {
-        display: inline-flex;
-        gap: 10px;
-        align-items: center;
-        color: var(--muted);
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        font-size: 12px;
-      }
-
-      .eyebrow::before {
-        content: '';
-        width: 36px;
-        height: 1px;
-        background: linear-gradient(
-          90deg,
-          rgba(91, 109, 246, 0.9),
-          transparent
-        );
-      }
-
-      h1 {
-        margin: 14px 0 12px;
-        font-size: clamp(40px, 6vw, 72px);
-        line-height: 0.94;
-        letter-spacing: -0.05em;
-      }
-
-      .hero p {
-        margin: 0;
-        max-width: 48ch;
-        color: var(--muted);
-        line-height: 1.65;
-      }
-
-      .hero-note {
-        padding: 18px 20px;
-        border: 1px solid var(--line);
-        background: linear-gradient(
-          180deg,
-          rgba(91, 109, 246, 0.08),
-          rgba(255, 255, 255, 0.86)
-        );
-        backdrop-filter: blur(18px);
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.06);
-      }
-
-      .hero-note strong {
-        display: block;
-        margin-bottom: 8px;
-        font-size: 14px;
-      }
-
-      .workspace {
-        display: grid;
-        grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-        gap: 20px;
-      }
-
-      .panel {
-        border: 1px solid var(--line);
-        background: var(--bg-soft);
-        backdrop-filter: blur(20px);
-        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.05);
-      }
-
-      .controls {
-        padding: 20px;
-        position: sticky;
-        top: 20px;
-        align-self: start;
-      }
-
-      .section-title {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: var(--muted);
-        margin: 0 0 16px;
-      }
-
-      .field {
-        display: grid;
-        gap: 8px;
-        margin-bottom: 14px;
-      }
-
-      .field label {
-        font-size: 13px;
-        color: var(--muted);
-      }
-
-      input,
-      select,
-      textarea,
-      button {
-        font: inherit;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(255, 255, 255, 0.9);
-        color: var(--text);
-        padding: 12px 14px;
-        outline: none;
-        transition:
-          border-color 160ms ease,
-          background 160ms ease,
-          box-shadow 160ms ease;
-      }
-
-      input:focus,
-      select:focus,
-      textarea:focus {
-        border-color: rgba(91, 109, 246, 0.6);
-        background: rgba(255, 255, 255, 1);
-        box-shadow: 0 0 0 4px rgba(91, 109, 246, 0.12);
-      }
-
-      textarea {
-        min-height: 172px;
-        resize: vertical;
-        line-height: 1.6;
-      }
-
-      .inline {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .toggle-field {
-        gap: 10px;
-        margin-top: 4px;
-      }
-
-      .toggle-control {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        cursor: pointer;
-        color: var(--text);
-        font-size: 14px;
-      }
-
-      .toggle-control input[type='checkbox'] {
-        width: 16px;
-        height: 16px;
-        margin: 0;
-        padding: 0;
-        accent-color: #5b6df6;
-        box-shadow: none;
-      }
-
-      .toggle-control span {
-        line-height: 1.4;
-      }
-
-      .button-row {
-        display: flex;
-        gap: 10px;
-        margin-top: 18px;
-      }
-
-      button {
-        border: 1px solid transparent;
-        cursor: pointer;
-        padding: 12px 18px;
-        color: white;
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        transition:
-          transform 160ms ease,
-          opacity 160ms ease,
-          box-shadow 160ms ease;
-      }
-
-      button:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.2);
-      }
-
-      button.secondary {
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.72);
-        border-color: rgba(148, 163, 184, 0.28);
-      }
-
-      button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .stack {
-        display: grid;
-        gap: 20px;
-      }
-
-      .preview-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        padding: 18px 20px 0;
-      }
-
-      .status {
-        font-size: 13px;
-        color: var(--muted);
-      }
-
-      .status.live {
-        color: #4f46e5;
-      }
-
-      .status.ok {
-        color: var(--success);
-      }
-
-      .status.error {
-        color: var(--danger);
-      }
-
-      .preview {
-        min-height: 420px;
-        border: 1px solid var(--line);
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.92), transparent),
-          rgba(248, 250, 252, 0.95);
-        overflow: hidden;
-      }
-
-      .preview-stage {
-        margin: 0 20px 20px;
-      }
-
-      .preview-head-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        position: relative;
-      }
-
-      .icon-button {
-        width: 42px;
-        height: 42px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        color: #4f46e5;
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.34);
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
-        backdrop-filter: blur(10px);
-      }
-
-      .menu-button {
-        width: auto;
-        min-width: 88px;
-        padding: 0 14px;
-        gap: 8px;
-      }
-
-      .menu-button .button-label {
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        line-height: 1;
-      }
-
-      .icon-button svg {
-        width: 18px;
-        height: 18px;
-      }
-
-      .icon-button.rotate-on-hover:hover:not(:disabled) svg {
-        transform: rotate(90deg);
-        transition: transform 0.22s ease;
-      }
-
-      .action-menu {
-        position: relative;
-      }
-
-      .action-menu-panel {
-        position: absolute;
-        top: calc(100% + 10px);
-        right: 0;
-        min-width: 148px;
-        padding: 8px;
-        display: grid;
-        gap: 6px;
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.26);
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
-        backdrop-filter: blur(14px);
-        z-index: 4;
-      }
-
-      .action-menu-panel[hidden] {
-        display: none;
-      }
-
-      .action-menu-item {
-        width: 100%;
-        border: 0;
-        border-radius: 12px;
-        background: transparent;
-        color: var(--text);
-        padding: 10px 12px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .action-menu-item:hover:not(:disabled) {
-        background: rgba(79, 70, 229, 0.08);
-      }
-
-      .action-menu-item:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-
-      .preview svg {
-        width: 100%;
-        height: auto;
-        display: block;
-      }
-
-      .preview-empty {
-        display: grid;
-        place-items: center;
-        min-height: 420px;
-        padding: 32px;
-        color: var(--muted);
-        text-align: center;
-      }
-
-      .meta {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
-      }
-
-      .log,
-      .json {
-        margin: 0;
-        padding: 18px 20px 20px;
-        min-height: 260px;
-        max-height: 320px;
-        overflow: auto;
-        color: #334155;
-        background: rgba(248, 250, 252, 0.92);
-        border-top: 1px solid var(--line);
-        white-space: pre-wrap;
-        line-height: 1.55;
-        font-size: 13px;
-      }
-
-      .hint {
-        margin-top: 12px;
-        font-size: 12px;
-        line-height: 1.6;
-        color: var(--muted);
-      }
-
-      .footer {
-        margin-top: 22px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .advanced-settings {
-        margin: 0 0 14px;
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        background: rgba(255, 255, 255, 0.72);
-        padding: 12px 14px;
-      }
-
-      .advanced-settings summary {
-        cursor: pointer;
-        color: var(--muted);
-        font-size: 13px;
-        user-select: none;
-      }
-
-      .advanced-settings[open] summary {
-        margin-bottom: 14px;
-      }
-
-      @media (max-width: 1100px) {
-        .hero,
-        .workspace,
-        .meta {
-          grid-template-columns: 1fr;
-        }
-
-        .controls {
-          position: static;
-        }
-      }
-
-      @media (max-width: 720px) {
-        .shell {
-          width: min(100vw - 24px, 1400px);
-          padding-top: 20px;
-        }
-
-        .inline {
-          grid-template-columns: 1fr;
-        }
-
-        .button-row {
-          flex-direction: column;
-        }
-      }
-    </style>
-    <script type="module" crossorigin src="/assets/index-7aEGBzTF.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-wMinxHhO.js">
-  </head>
-  <body>
-    <div class="shell">
-      <div class="topbar">
-        <a
-          class="topbar-link"
-          href="https://github.com/nihaokkjj/sparrow"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="打开 Sparrow GitHub 仓库"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.38 7.86 10.9.57.11.78-.25.78-.55 0-.27-.01-1.16-.02-2.1-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.71.08-.7.08-.7 1.16.08 1.78 1.2 1.78 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.53-2.56-.29-5.25-1.28-5.25-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.45.11-3.02 0 0 .96-.31 3.14 1.18a10.9 10.9 0 0 1 5.72 0c2.17-1.49 3.13-1.18 3.13-1.18.62 1.57.23 2.73.11 3.02.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.68.41.36.78 1.08.78 2.19 0 1.58-.01 2.85-.01 3.24 0 .3.2.67.79.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
-            />
-          </svg>
-          <span>GitHub</span>
-        </a>
-      </div>
-
-      <section class="hero">
-        <div>
-          <div class="eyebrow">Sparrow · AI 演示台</div>
-          <h1>AI Sparrow</h1>
-          <p>
-            这是一个轻量级演示页面，可将自然语言转换为 Sparrow
-            图表规范，实时接收 模型分块输出，渐进解析 JSON，并通过
-            <code>renderAISpec()</code>
-            渲染最终结果。
-          </p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sparrow AI 演示台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-hover: #f8fafc;
+      --border: #e2e8f0;
+      --border-active: #cbd5e1;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --muted: #94a3b8;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-dim: rgba(79, 70, 229, 0.08);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.08);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.08);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .page-shell {
+      max-width: 1820px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 0;
+      transition: grid-template-columns 0.22s ease;
+    }
+
+    .page-shell.help-open {
+      grid-template-columns: minmax(0, 1fr) 380px;
+    }
+
+    .app {
+      width: min(100%, 1440px);
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+      min-width: 0;
+    }
+
+    .help-trigger {
+      position: relative;
+    }
+
+    .help-trigger::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-dim);
+    }
+
+    .help-sidebar {
+      min-width: 0;
+      width: 100%;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      overflow: auto;
+      background: #ffffff;
+      border-left: 1px solid transparent;
+      box-shadow: none;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(12px);
+      transition:
+        opacity 0.22s ease,
+        transform 0.22s ease,
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
+    }
+
+    .page-shell.help-open .help-sidebar {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+      border-left-color: var(--border);
+      box-shadow: -18px 0 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .help-dialog {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background: #ffffff;
+    }
+
+    .help-dialog-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .help-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .help-header-copy {
+      max-width: 320px;
+    }
+
+    .help-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(79, 70, 229, 0.08);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .help-eyebrow::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+    }
+
+    .help-header h2 {
+      font-size: clamp(24px, 3vw, 32px);
+      line-height: 1.15;
+      letter-spacing: -0.04em;
+      margin-bottom: 10px;
+    }
+
+    .help-header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .help-close {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.84);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .help-close:hover {
+      color: var(--text);
+      border-color: var(--border-active);
+      background: white;
+    }
+
+    .help-list strong {
+      color: var(--text);
+    }
+
+    .help-list {
+      display: grid;
+      gap: 12px;
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: white;
+    }
+
+    .brand-icon svg { width: 20px; height: 20px; }
+
+    .brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand span {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--border-active);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+
+    .btn-ghost svg { width: 16px; height: 16px; }
+
+    /* Main Layout */
+    .main {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    /* Form */
+    .field { margin-bottom: 16px; }
+
+    .field:last-child { margin-bottom: 0; }
+
+    .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Toggle */
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .toggle-text { font-size: 14px; }
+
+    .toggle-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: var(--border);
+      border-radius: 11px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .toggle input { display: none; }
+
+    .toggle input:checked + .toggle-switch {
+      background: var(--accent);
+    }
+
+    .toggle input:checked + .toggle-switch::after {
+      left: 20px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      font-family: inherit;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      flex: 1;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--border-active);
+      color: var(--text);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn svg { width: 16px; height: 16px; }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    /* Details */
+    details {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    summary {
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    summary::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      background: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") center no-repeat;
+      transition: transform 0.2s;
+    }
+
+    details[open] summary::after { transform: rotate(180deg); }
+
+    details[open] summary { border-bottom: 1px solid var(--border); }
+
+    .details-body { padding: 16px; }
+
+    /* Preview Section */
+    .preview-wrap { display: flex; flex-direction: column; gap: 20px; }
+
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-icon:hover:not(:disabled) {
+      border-color: var(--border-active);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+
+    .btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    .toolbar-button {
+      padding: 8px 12px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .toolbar-button svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Dropdown */
+    .dropdown { position: relative; }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      min-width: 140px;
+      box-shadow: var(--shadow-lg);
+      z-index: 50;
+      display: none;
+    }
+
+    .dropdown.open .dropdown-menu { display: block; }
+
+    .dropdown-item {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 500;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .dropdown-item .meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Canvas */
+    .canvas {
+      min-height: 400px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, #f8fafc, #f1f5f9),
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.15) 1px, transparent 0);
+      background-size: 100% 100%, 20px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .canvas svg { width: 100%; height: auto; display: block; }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 48px;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+      color: var(--muted);
+    }
+
+    /* Logs */
+    .logs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .log-panel {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .log-dots { display: flex; gap: 6px; }
+
+    .log-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .log-dot.r { background: #ff5f57; }
+    .log-dot.y { background: #febc2e; }
+    .log-dot.g { background: #28c840; }
+
+    .log-title {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      margin-left: 4px;
+    }
+
+    .log-body {
+      padding: 14px;
+      max-height: 220px;
+      overflow: auto;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer code {
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
+
+    /* Responsive */
+    @media (max-width: 1280px) {
+      .page-shell.help-open { grid-template-columns: minmax(0, 1fr) 340px; }
+    }
+
+    @media (max-width: 960px) {
+      .page-shell.help-open { grid-template-columns: minmax(0, 1fr) 300px; }
+    }
+
+    @media (max-width: 1024px) {
+      .main { grid-template-columns: 1fr; }
+      .logs { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 16px; }
+      .header { align-items: flex-start; }
+      .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+      .page-shell.help-open { grid-template-columns: minmax(0, 1fr) 280px; }
+      .help-dialog-inner { padding: 20px; }
+      .help-header { flex-direction: column; }
+      .help-close { align-self: flex-end; }
+      .field-row { grid-template-columns: 1fr; }
+      .btn-group { flex-direction: column; }
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-C-EgJRCD.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-wMinxHhO.js">
+</head>
+<body>
+  <div class="page-shell" id="page-shell">
+    <div class="app">
+      <!-- Header -->
+      <header class="header">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Sparrow AI</h1>
+            <span>自然语言转图表</span>
+          </div>
         </div>
-        <aside class="hero-note panel">
-          <strong>已配置智谱模型</strong>
-          输入提示词即可开始生成。请求会通过服务端代理转发，因此访客默认使用你提供的
-          免费模型，无需额外配置 API 密钥。
-        </aside>
-      </section>
+        <div class="header-actions">
+          <span class="badge">智谱 AI 已配置</span>
+          <button type="button" class="btn-ghost help-trigger" id="help-trigger" aria-controls="help-sidebar" aria-expanded="false">
+            使用说明
+          </button>
+          <a href="https://github.com/nihaokkjj/sparrow" target="_blank" class="btn-ghost">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.38 7.86 10.9.57.11.78-.25.78-.55 0-.27-.01-1.16-.02-2.1-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.71.08-.7.08-.7 1.16.08 1.78 1.2 1.78 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.53-2.56-.29-5.25-1.28-5.25-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.45.11-3.02 0 0 .96-.31 3.14 1.18a10.9 10.9 0 0 1 5.72 0c2.17-1.49 3.13-1.18 3.13-1.18.62 1.57.23 2.73.11 3.02.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.68.41.36.78 1.08.78 2.19 0 1.58-.01 2.85-.01 3.24 0 .3.2.67.79.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
+      </header>
 
-      <section class="workspace">
-        <form class="controls panel" id="controls">
-          <p class="section-title">输入</p>
-          <div class="field">
-            <label for="prompt">提示词</label>
-            <textarea id="prompt" name="prompt">
-做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea
-            >
-          </div>
-
-          <div class="field inline">
-            <div class="field">
-              <label for="canvasWidth">画布宽度</label>
-              <input
-                id="canvasWidth"
-                name="canvasWidth"
-                type="number"
-                value="640"
-                min="100"
-                max="2000"
-                style="width: 100%"
-              />
+      <!-- Main -->
+      <div class="main">
+        <!-- Sidebar Controls -->
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">参数配置</span>
             </div>
-            <div class="field">
-              <label for="canvasHeight">画布高度</label>
-              <input
-                id="canvasHeight"
-                name="canvasHeight"
-                type="number"
-                value="480"
-                min="100"
-                max="2000"
-                style="width: 100%"
-              />
-            </div>
-          </div>
-
-          <div class="field toggle-field">
-            <label class="toggle-control" for="autoLayout">
-              <input
-                id="autoLayout"
-                name="autoLayout"
-                type="checkbox"
-                checked
-              />
-              <span>自动平衡多图布局</span>
-            </label>
-            <div class="hint">
-              开启后，<code>renderAISpec()</code> 会根据画布尺寸，把拥挤的
-              row/col 布局自动调整为更接近方形的网格；关闭后则严格保留模型原始布局。
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="promptPreset">Skill / Mode</label>
-            <select id="promptPreset" name="promptPreset"></select>
-            <div class="hint" id="prompt-preset-hint"></div>
-          </div>
-
-          <div class="field">
-            <label for="provider">Provider</label>
-            <select id="provider" name="provider">
-              <option value="openai-compatible">智谱 AI（已配置）</option>
-            </select>
-            <div class="hint">
-              默认使用你提供的免费 Model API；高级选项已折叠，按需展开即可。
-            </div>
-          </div>
-
-          <details id="provider-config" class="advanced-settings">
-            <summary>高级设置（可选）</summary>
-            <div class="field">
-              <label for="connectionMode">连接方式</label>
-              <select id="connectionMode" name="connectionMode">
-                <option value="proxy">同源代理（推荐，避免 CORS）</option>
-                <option value="direct">浏览器直连 / 中转站</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="targetBaseURL">目标 Base URL</label>
-              <input
-                id="targetBaseURL"
-                name="targetBaseURL"
-                type="text"
-                autocomplete="off"
-                placeholder="留空则使用已配置的智谱目标地址"
-              />
-            </div>
-
-            <div class="hint" id="connection-mode-hint"></div>
-
-            <div class="inline">
-              <div class="field">
-                <label for="model">Model</label>
-                <input
-                  id="model"
-                  name="model"
-                  type="text"
-                  value="glm-4.7-flash"
-                />
-              </div>
-              <div class="field">
-                <label for="apiKey">API Key</label>
-                <input
-                  id="apiKey"
-                  name="apiKey"
-                  type="password"
-                  autocomplete="off"
-                />
-              </div>
-            </div>
-          </details>
-
-          <div class="field toggle-field">
-            <label class="toggle-control" for="animateRender">
-              <input
-                id="animateRender"
-                name="animateRender"
-                type="checkbox"
-              />
-              <span>生成后播放入场动画</span>
-            </label>
-            <div class="hint">
-              勾选后，前端会在渲染前为图表补上第一版入场动画；不勾选则始终静态绘制。
-            </div>
-          </div>
-
-          <div class="button-row">
-            <button type="submit" id="run">生成图表</button>
-            <button type="button" class="secondary" id="stop" disabled>
-              停止
-            </button>
-          </div>
-
-          <div class="hint">
-            当前页面默认通过同源代理调用你配置好的免费智谱 Model。
-          </div>
-          <div class="hint">
-            高级用户仍可切换直连、自定义 Target Base URL、Model 或 API Key。
-          </div>
-        </form>
-
-        <div class="stack">
-          <section class="panel">
-            <div class="preview-head">
-              <div>
-                <p class="section-title" style="margin-bottom: 8px">预览</p>
-                <div id="status" class="status">等待输入提示词。</div>
-              </div>
-              <div class="preview-head-actions">
-                <div id="summary" class="status hidden" aria-hidden="true">
-                  暂无图表规范
+            <div class="card-body">
+              <form id="controls">
+                <div class="field">
+                  <label class="field-label" for="prompt">提示词</label>
+                  <textarea id="prompt" name="prompt" placeholder="描述你想要的图表...">做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea>
                 </div>
-                <button
-                  type="button"
-                  class="secondary icon-button rotate-on-hover"
-                  id="rerender"
-                  disabled
-                  aria-label="重新渲染"
-                  title="重新渲染"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                    <path d="M21 3v6h-6" />
-                  </svg>
-                  <span class="sr-only">重新渲染</span>
-                </button>
-                <div class="action-menu">
-                  <button
-                    type="button"
-                    class="secondary icon-button menu-button"
-                    id="export-menu-button"
-                    disabled
-                    aria-label="导出图表"
-                    aria-expanded="false"
-                    aria-haspopup="menu"
-                    title="导出图表"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3v12" />
-                      <path d="m7 10 5 5 5-5" />
-                      <path d="M5 21h14" />
+
+                <div class="field field-row">
+                  <div>
+                    <label class="field-label" for="canvasWidth">宽度</label>
+                    <input type="number" id="canvasWidth" name="canvasWidth" value="640" min="100" max="2000" />
+                  </div>
+                  <div>
+                    <label class="field-label" for="canvasHeight">高度</label>
+                    <input type="number" id="canvasHeight" name="canvasHeight" value="480" min="100" max="2000" />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="toggle">
+                    <div>
+                      <div class="toggle-text">自动平衡布局</div>
+                      <div class="toggle-sub">自动优化 row/col 为方形网格</div>
+                    </div>
+                    <input type="checkbox" id="autoLayout" name="autoLayout" checked />
+                    <div class="toggle-switch"></div>
+                  </label>
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="promptPreset">Skill / Mode</label>
+                  <select id="promptPreset" name="promptPreset"></select>
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="provider">提供商</label>
+                  <select id="provider" name="provider">
+                    <option value="zhipu">智谱 AI</option>
+                    <option value="openai">OpenAI</option>
+                  </select>
+                </div>
+
+                <details class="field" style="margin-bottom: 0;">
+                  <summary>高级设置</summary>
+                  <div class="details-body">
+                    <div class="field">
+                      <label class="field-label" for="connectionMode">连接方式</label>
+                      <select id="connectionMode" name="connectionMode">
+                        <option value="proxy">同源代理</option>
+                        <option value="direct">浏览器直连</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="targetBaseURL">Base URL</label>
+                      <input type="text" id="targetBaseURL" name="targetBaseURL" placeholder="留空使用默认" />
+                    </div>
+                    <div class="field field-row">
+                      <div>
+                        <label class="field-label" for="model">模型</label>
+                        <input type="text" id="model" name="model" value="glm-5.1" />
+                      </div>
+                      <div>
+                        <label class="field-label" for="apiKey">API Key</label>
+                        <input type="password" id="apiKey" name="apiKey" placeholder="可选" />
+                      </div>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="field" style="margin-top: 16px;">
+                  <label class="toggle">
+                    <div>
+                      <div class="toggle-text">入场动画</div>
+                      <div class="toggle-sub">渲染后播放图表生长动画</div>
+                    </div>
+                    <input type="checkbox" id="animateRender" name="animateRender" />
+                    <div class="toggle-switch"></div>
+                  </label>
+                </div>
+
+                <div class="btn-group">
+                  <button type="submit" class="btn btn-primary" id="run">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="5 3 19 12 5 21 5 3"/>
                     </svg>
-                    <span class="button-label" aria-hidden="true">导出</span>
+                    生成
                   </button>
-                  <div
-                    class="action-menu-panel"
-                    id="export-menu-panel"
-                    role="menu"
-                    hidden
-                  >
-                    <button
-                      type="button"
-                      class="action-menu-item"
-                      id="export-image"
-                      role="menuitem"
-                    >
+                  <button type="button" class="btn btn-secondary" id="stop" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="6" y="4" width="4" height="16"/>
+                      <rect x="14" y="4" width="4" height="16"/>
+                    </svg>
+                    停止
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Preview Area -->
+        <div class="preview-wrap">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">图表预览</span>
+              <div class="toolbar-actions">
+                <span id="summary" class="hidden" style="font-size: 12px; color: var(--muted);">暂无图表规范</span>
+                <button class="btn btn-secondary toolbar-button" id="auto-layout-action" disabled title="自动排版">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                    <path d="M14 17h7"></path>
+                    <path d="M14 21h7"></path>
+                    <path d="M17.5 14v7"></path>
+                  </svg>
+                  自动排版
+                </button>
+                <button class="btn-icon" id="rerender" disabled title="重新渲染">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                </button>
+                <div class="dropdown" id="export-dropdown">
+                  <button class="btn-icon" id="export-menu-button" disabled title="导出">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                  <div class="dropdown-menu" role="menu">
+                    <button class="dropdown-item" id="export-image" role="menuitem">
                       <span>PNG</span>
-                      <span aria-hidden="true">静态</span>
+                      <span class="meta">静态</span>
                     </button>
-                    <button
-                      type="button"
-                      class="action-menu-item"
-                      id="export-apng"
-                      role="menuitem"
-                    >
+                    <button class="dropdown-item" id="export-apng" role="menuitem">
                       <span>APNG</span>
-                      <span aria-hidden="true">动图</span>
+                      <span class="meta">动图</span>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="preview-stage">
-              <div class="preview" id="preview">
-                <div class="preview-empty">
-                  生成后的 SVG 会显示在这里。
+            <div class="card-body">
+              <div class="preview-toolbar" style="margin-bottom: 12px;">
+                <div class="status">
+                  <div class="status-dot" id="status-dot"></div>
+                  <span id="status-text">等待输入提示词</span>
+                </div>
+              </div>
+              <div class="canvas" id="preview">
+                <div class="empty-state">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M3 9h18"/>
+                    <path d="M9 21V9"/>
+                  </svg>
+                  <div>生成后的 SVG 将显示在这里</div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
 
-          <section class="meta">
-            <div class="panel">
-              <div class="preview-head">
-                <div>
-                  <p class="section-title" style="margin-bottom: 8px">
-                    流式缓冲区
-                  </p>
-                  <div class="status">模型实时文本流</div>
+          <!-- Logs -->
+          <div class="logs">
+            <div class="log-panel">
+              <div class="log-header">
+                <div class="log-dots">
+                  <div class="log-dot r"></div>
+                  <div class="log-dot y"></div>
+                  <div class="log-dot g"></div>
                 </div>
+                <span class="log-title">stream-log</span>
               </div>
-              <pre id="stream-log" class="log"></pre>
+              <pre class="log-body" id="stream-log"></pre>
             </div>
-
-            <div class="panel">
-              <div class="preview-head">
-                <div>
-                  <p class="section-title" style="margin-bottom: 8px">
-                    解析出的 JSON 规范
-                  </p>
-                  <div class="status">
-                    缓冲区中提取出的最近一个有效对象
-                  </div>
+            <div class="log-panel">
+              <div class="log-header">
+                <div class="log-dots">
+                  <div class="log-dot r"></div>
+                  <div class="log-dot y"></div>
+                  <div class="log-dot g"></div>
                 </div>
+                <span class="log-title">spec.json</span>
               </div>
-              <pre id="spec-json" class="json"></pre>
+              <pre class="log-body" id="spec-json"></pre>
             </div>
-          </section>
+          </div>
         </div>
-      </section>
-
-      <p class="footer">
-        提示：在当前目录运行 <code>pnpm dev</code>，然后打开
-        <code>/</code>。
-      </p>
+      </div>
     </div>
-  </body>
+
+    <aside class="help-sidebar" id="help-sidebar" aria-hidden="true" aria-labelledby="help-title">
+      <div class="help-dialog">
+        <div class="help-dialog-inner">
+          <div class="help-header">
+            <div class="help-header-copy">
+              <span class="help-eyebrow">新手使用说明</span>
+              <h2 id="help-title">Sparrow AI 的主要功能</h2>
+              <p>
+                这是一个自然语言生成图表的演示台，适合快速把描述转成图表结果并继续查看与导出。
+              </p>
+            </div>
+            <button type="button" class="help-close" id="help-close" aria-label="关闭使用说明">✕</button>
+          </div>
+
+          <ul class="help-list">
+            <li><strong>自然语言生成图表：</strong>输入一句描述，快速生成对应的图表内容。</li>
+            <li><strong>实时预览结果：</strong>右侧可以直接看到图表渲染效果和生成状态。</li>
+            <li><strong>查看图表规范：</strong>支持查看流式输出日志和生成的 JSON 规范。</li>
+            <li><strong>重新渲染与自动排版：</strong>生成后可以继续调整当前图表结果。</li>
+            <li><strong>导出图表：</strong>支持导出为 PNG 或 APNG，方便演示和分享。</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+</body>
 </html>

@@ -31,6 +31,7 @@ const animateRenderInput = document.getElementById('animateRender')
 const autoLayoutInput = document.getElementById('autoLayout')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
+const autoLayoutActionButton = document.getElementById('auto-layout-action')
 const rerenderButton = document.getElementById('rerender')
 const exportMenuButton = document.getElementById('export-menu-button')
 const exportMenuRoot = document.getElementById('export-dropdown')
@@ -48,6 +49,10 @@ const summaryNode = document.getElementById('summary')
 const streamLogNode = document.getElementById('stream-log')
 const specJsonNode = document.getElementById('spec-json')
 const previewNode = document.getElementById('preview')
+const pageShell = document.getElementById('page-shell')
+const helpTriggerButton = document.getElementById('help-trigger')
+const helpSidebar = document.getElementById('help-sidebar')
+const helpCloseButton = document.getElementById('help-close')
 const env = import.meta.env || {}
 const providerSettingsKey = 'sparrow.playground.provider-settings'
 const providerSettingsVersion = 3
@@ -58,28 +63,28 @@ const defaultProviderSettingsById = Object.freeze({
 
 const hasPlaygroundPage = Boolean(
   form &&
-    promptInput &&
-    canvasWidthInput &&
-    canvasHeightInput &&
-    promptPresetSelect &&
-    providerSelect &&
-    connectionModeSelect &&
-    targetBaseURLInput &&
-    modelInput &&
-    apiKeyInput &&
-    animateRenderInput &&
-    autoLayoutInput &&
-    runButton &&
-    stopButton &&
-    rerenderButton &&
-    exportMenuButton &&
-    exportImageButton &&
-    exportAPNGButton &&
-    statusTextNode &&
-    summaryNode &&
-    streamLogNode &&
-    specJsonNode &&
-    previewNode
+  promptInput &&
+  canvasWidthInput &&
+  canvasHeightInput &&
+  promptPresetSelect &&
+  providerSelect &&
+  connectionModeSelect &&
+  targetBaseURLInput &&
+  modelInput &&
+  apiKeyInput &&
+  animateRenderInput &&
+  autoLayoutInput &&
+  runButton &&
+  stopButton &&
+  rerenderButton &&
+  exportMenuButton &&
+  exportImageButton &&
+  exportAPNGButton &&
+  statusTextNode &&
+  summaryNode &&
+  streamLogNode &&
+  specJsonNode &&
+  previewNode
 )
 
 let controller = null
@@ -88,6 +93,7 @@ let lastRenderResult = null
 let lastRenderedDimensions = null
 let isExportingImage = false
 let activeProvider = DEFAULT_PLAYGROUND_PROVIDER
+let lastFocusedNodeBeforeHelp = null
 
 const markTypeLabels = Object.freeze({
   point: '点图',
@@ -130,6 +136,17 @@ const statusStyles = Object.freeze({
     shadow: 'none'
   }
 })
+
+const autoLayoutMarkTypes = new Set([
+  'point',
+  'line',
+  'interval',
+  'pie',
+  'area',
+  'rect',
+  'cell',
+  'text'
+])
 
 function cloneSpec(spec) {
   if (spec === null || spec === undefined) return spec
@@ -214,6 +231,73 @@ function summarizeSpec(spec) {
   }
 }
 
+function hasAutoLayoutCandidate(spec) {
+  const root = spec?.view || spec
+  return hasAutoLayoutCandidateNode(root)
+}
+
+function hasAutoLayoutCandidateNode(node) {
+  if (!node || typeof node !== 'object') return false
+
+  if (
+    Array.isArray(node.children) &&
+    (node.type === 'row' || node.type === 'col') &&
+    node.flex === undefined &&
+    node.autoLayout !== false &&
+    node?.layout?.auto !== false
+  ) {
+    if (
+      node.children.length >= 4 &&
+      node.children.every((child) => isAutoLayoutPlotLikeSpec(child))
+    ) {
+      return true
+    }
+
+    const innerType = node.type === 'col' ? 'row' : 'col'
+    if (
+      node.children.length >= 2 &&
+      node.children.every((child) =>
+        isAutoLayoutGridAxisGroup(child, innerType)
+      )
+    ) {
+      return true
+    }
+  }
+
+  if (node.view) {
+    return hasAutoLayoutCandidateNode(node.view)
+  }
+
+  if (Array.isArray(node.children)) {
+    return node.children.some((child) => hasAutoLayoutCandidateNode(child))
+  }
+
+  return false
+}
+
+function isAutoLayoutGridAxisGroup(node, type) {
+  return Boolean(
+    node &&
+    node.type === type &&
+    node.flex === undefined &&
+    Array.isArray(node.children) &&
+    node.children.length > 0 &&
+    node.children.every((child) => isAutoLayoutPlotLikeSpec(child))
+  )
+}
+
+function isAutoLayoutPlotLikeSpec(node) {
+  return Boolean(
+    node &&
+    typeof node === 'object' &&
+    !Array.isArray(node) &&
+    (Array.isArray(node.plots) ||
+      Array.isArray(node.plot) ||
+      node.plot ||
+      autoLayoutMarkTypes.has(node.type))
+  )
+}
+
 function readStoredProviderSettings() {
   try {
     return JSON.parse(localStorage.getItem(providerSettingsKey) || '{}')
@@ -281,10 +365,9 @@ function getProviderSettingsMap() {
           typeof (canRestoreScopedProviders
             ? stored.providers?.zhipu?.targetBaseURL
             : legacyZhipuSettings.targetBaseURL) === 'string'
-            ? (
-                canRestoreScopedProviders
-                  ? stored.providers?.zhipu?.targetBaseURL
-                  : legacyZhipuSettings.targetBaseURL
+            ? (canRestoreScopedProviders
+                ? stored.providers?.zhipu?.targetBaseURL
+                : legacyZhipuSettings.targetBaseURL
               ).trim()
             : defaultProviderSettingsById.zhipu.targetBaseURL,
         model:
@@ -317,9 +400,10 @@ function getEffectiveSpec(spec) {
   })
 }
 
-function getRenderPreferences() {
+function getRenderPreferences(overrides = {}) {
   return {
-    autoLayout: autoLayoutInput.checked
+    autoLayout: autoLayoutInput.checked,
+    ...overrides
   }
 }
 
@@ -362,12 +446,25 @@ function isExportMenuOpen() {
 
 function syncChartActionButtons() {
   const hasRenderedSpec = Boolean(lastRenderedSpec)
+  const autoLayoutDisabled =
+    !hasRenderedSpec || !hasAutoLayoutCandidate(lastRenderedSpec)
   const exportDisabled = !hasRenderedSpec || isExportingImage
 
+  if (autoLayoutActionButton) {
+    autoLayoutActionButton.disabled = autoLayoutDisabled
+  }
   rerenderButton.disabled = !hasRenderedSpec
   exportMenuButton.disabled = exportDisabled
   exportImageButton.disabled = exportDisabled
   exportAPNGButton.disabled = exportDisabled
+
+  if (autoLayoutActionButton) {
+    autoLayoutActionButton.title = autoLayoutDisabled
+      ? hasRenderedSpec
+        ? '\u5f53\u524d\u56fe\u8868\u6ca1\u6709\u53ef\u91cd\u65b0\u8ba1\u7b97\u7684\u591a\u56fe\u5e03\u5c40'
+        : '\u751f\u6210\u56fe\u8868\u540e\u53ef\u81ea\u52a8\u6392\u7248'
+      : '\u6839\u636e\u753b\u5e03\u91cd\u65b0\u8ba1\u7b97\u591a\u56fe\u4f4d\u7f6e'
+  }
 
   if (!hasRenderedSpec) {
     setSummary('暂无图表规范', false)
@@ -393,30 +490,64 @@ function clearRenderedSpec() {
   syncChartActionButtons()
 }
 
-function renderStoredSpec() {
+function renderStoredSpec(options = {}) {
   if (!lastRenderedSpec) {
     setStatus('当前还没有可重新渲染的 JSON 规范。')
     return
   }
 
   try {
+    const renderPreferences = getRenderPreferences(options.renderPreferences)
     lastRenderResult?.stopAnimations?.()
     lastRenderResult = renderAISpec(cloneSpec(lastRenderedSpec), {
       container: previewNode,
-      ...getRenderPreferences(),
+      ...renderPreferences,
       ...(lastRenderedDimensions || {})
     })
 
+    if (options.successMessage) {
+      setStatus(options.successMessage, 'ok')
+      return
+    }
+
     const { typeLabel, layoutLabel } = summarizeSpec(lastRenderedSpec)
+    const autoLayoutSuffix =
+      renderPreferences.autoLayout && hasAutoLayoutCandidate(lastRenderedSpec)
+        ? '，并重新计算了多图位置'
+        : ''
     setStatus(
       layoutLabel
-        ? `已根据当前 JSON 对象重新渲染 ${layoutLabel}，包含 ${typeLabel}。`
-        : `已根据当前 JSON 对象重新渲染 ${typeLabel}。`,
+        ? `已根据当前 JSON 对象重新渲染 ${layoutLabel}，包含 ${typeLabel}${autoLayoutSuffix}。`
+        : `已根据当前 JSON 对象重新渲染 ${typeLabel}${autoLayoutSuffix}。`,
       'ok'
     )
   } catch (error) {
     setStatus(error?.message || '重新渲染失败。', 'error')
   }
+}
+
+function autoLayoutStoredSpec() {
+  if (!lastRenderedSpec) {
+    setStatus('当前还没有可自动排版的 JSON 规范。')
+    return
+  }
+
+  if (!hasAutoLayoutCandidate(lastRenderedSpec)) {
+    setStatus('当前图表不包含需要重新计算位置的多图布局。')
+    return
+  }
+
+  if (!autoLayoutInput.checked) {
+    autoLayoutInput.checked = true
+    persistProviderSettings()
+  }
+
+  renderStoredSpec({
+    renderPreferences: {
+      autoLayout: true
+    },
+    successMessage: '已根据画布大小重新计算多图位置并自动排版。'
+  })
 }
 
 async function exportRenderedImage() {
@@ -492,6 +623,35 @@ function toggleExportMenu() {
   setExportMenuOpen(!isExportMenuOpen())
 }
 
+function isHelpModalOpen() {
+  return pageShell?.classList.contains('help-open') === true
+}
+
+function openHelpModal() {
+  if (!pageShell || !helpSidebar) return
+  lastFocusedNodeBeforeHelp = document.activeElement
+  pageShell.classList.add('help-open')
+  helpSidebar.setAttribute('aria-hidden', 'false')
+  helpTriggerButton?.setAttribute('aria-expanded', 'true')
+  helpCloseButton?.focus()
+}
+
+function closeHelpModal() {
+  if (!pageShell || !helpSidebar) return
+  pageShell.classList.remove('help-open')
+  helpSidebar.setAttribute('aria-hidden', 'true')
+  helpTriggerButton?.setAttribute('aria-expanded', 'false')
+  lastFocusedNodeBeforeHelp?.focus?.()
+}
+
+function toggleHelpModal() {
+  if (isHelpModalOpen()) {
+    closeHelpModal()
+    return
+  }
+  openHelpModal()
+}
+
 function createConfiguredProvider(systemPrompt) {
   const providerDefaults = defaultProviderSettingsById[activeProvider]
   const targetBaseURL =
@@ -523,9 +683,7 @@ function createConfiguredProvider(systemPrompt) {
 function syncConnectionModeUI() {
   const providerProfile = getPlaygroundProviderProfile(activeProvider, env)
   const isDirect = connectionModeSelect.value === 'direct'
-  const hint = isDirect
-    ? providerProfile.directHint
-    : providerProfile.proxyHint
+  const hint = isDirect ? providerProfile.directHint : providerProfile.proxyHint
 
   targetBaseURLInput.placeholder = isDirect
     ? providerProfile.directTargetPlaceholder
@@ -615,7 +773,10 @@ if (hasPlaygroundPage) {
     controller?.abort()
   })
 
+  autoLayoutActionButton?.addEventListener('click', autoLayoutStoredSpec)
   rerenderButton.addEventListener('click', renderStoredSpec)
+  helpTriggerButton?.addEventListener('click', toggleHelpModal)
+  helpCloseButton?.addEventListener('click', closeHelpModal)
   exportMenuButton.addEventListener('click', (event) => {
     event.stopPropagation()
     toggleExportMenu()
@@ -638,6 +799,10 @@ if (hasPlaygroundPage) {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (isHelpModalOpen()) {
+        closeHelpModal()
+        return
+      }
       closeExportMenu()
     }
   })
@@ -733,7 +898,9 @@ if (hasPlaygroundPage) {
           lastRenderResult = result
           const effectiveSpec = getEffectiveSpec(spec)
           const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
-          const animationSuffix = animateRenderInput.checked ? '，带入场动画' : ''
+          const animationSuffix = animateRenderInput.checked
+            ? '，带入场动画'
+            : ''
 
           setStatus(
             layoutLabel

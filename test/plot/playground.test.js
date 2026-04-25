@@ -78,6 +78,30 @@ test('createPlotSpecChunkBuffer() emits a spec once JSON becomes valid', () => {
   expect(buffer.finish().plot.encodings.x).toBe('x')
 })
 
+
+test('createPlotSpecChunkBuffer() parses incrementally across tiny chunks', () => {
+  const buffer = createPlotSpecChunkBuffer()
+  const text = 'intro\n```json\n{"plot":{"type":"point","data":[{"label":"brace } in string","value":2}],"encodings":{"x":"label","y":"value"}}}\n```\noutro'
+  let spec = null
+
+  for (const chunk of text.match(/.{1,3}/gs)) {
+    spec = buffer.push(chunk) || spec
+  }
+
+  expect(spec.plot.data[0].label).toBe('brace } in string')
+  expect(buffer.finish().plot.encodings.y).toBe('value')
+})
+
+test('createPlotSpecChunkBuffer() preserves custom parser compatibility', () => {
+  const parse = vi.fn((text) =>
+    text.endsWith('done') ? { plot: { type: 'custom' } } : null
+  )
+  const buffer = createPlotSpecChunkBuffer({ parse })
+
+  expect(buffer.push('not ')).toBeNull()
+  expect(buffer.push('done').plot.type).toBe('custom')
+  expect(parse).toHaveBeenCalledTimes(2)
+})
 test('streamPlotSpec() runs prompt -> provider -> chunk buffer -> spec -> render', async () => {
   const provider = createMockPlotProvider({ delay: 0, chunkSize: 18 })
   const render = vi.fn((spec) => ({ node: null, spec }))
@@ -293,3 +317,4 @@ test('createOpenAICompatibleProvider() forwards custom proxy headers to fetch', 
     signal: undefined
   })
 })
+

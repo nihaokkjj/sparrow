@@ -1,4 +1,4 @@
-锘縤mport { renderAISpec } from './renderAISpec.js'
+import { renderAISpec } from './renderAISpec.js'
 
 import { buildOpenAICompatibleRequestURL } from './providerConfig.js'
 import { DEFAULT_PLOT_SPEC_SYSTEM_PROMPT } from './prompts.js'
@@ -47,11 +47,16 @@ export function createPlotSpecChunkBuffer({
   let raw = ''
   let spec = null
   let fingerprint = ''
+  const parser =
+    parse === parsePlotSpecResponse
+      ? createIncrementalPlotSpecParser(() => raw)
+      : null
 
   return {
     push(chunk) {
-      raw += normalizeChunk(chunk)
-      const next = parse(raw)
+      const text = normalizeChunk(chunk)
+      raw += text
+      const next = parser ? parser.push(text) : parse(raw)
       if (!next) return null
 
       const nextFingerprint = JSON.stringify(next)
@@ -65,9 +70,10 @@ export function createPlotSpecChunkBuffer({
       raw = ''
       spec = null
       fingerprint = ''
+      parser?.reset()
     },
     finish() {
-      const next = parse(raw)
+      const next = parser ? parser.finish(raw) : parse(raw)
       if (next) {
         spec = next
         fingerprint = JSON.stringify(next)
@@ -81,6 +87,150 @@ export function createPlotSpecChunkBuffer({
       return raw
     }
   }
+}
+
+function createIncrementalPlotSpecParser(getRaw) {
+  const candidates = []
+  let inFence = false
+  let fenceStartOfLine = true
+  let pendingFenceTicks = 0
+  let fenceBody = ''
+  let objectStart = -1
+  let objectDepth = 0
+  let objectInString = false
+  let objectEscaped = false
+  let offset = 0
+
+  function push(text) {
+    scan(text)
+    return parseLatestCandidate()
+  }
+
+  function finish(raw) {
+    flushFenceTicks()
+    const latest = parseLatestCandidate()
+    if (latest) return latest
+    return parsePlotSpecResponse(raw)
+  }
+
+  function reset() {
+    candidates.length = 0
+    inFence = false
+    fenceStartOfLine = true
+    pendingFenceTicks = 0
+    fenceBody = ''
+    objectStart = -1
+    objectDepth = 0
+    objectInString = false
+    objectEscaped = false
+    offset = 0
+  }
+
+  function scan(text) {
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index]
+      const absoluteIndex = offset + index
+
+      scanFence(char)
+      scanObject(char, absoluteIndex)
+    }
+    if (pendingFenceTicks >= 3) flushFenceTicks()
+    offset += text.length
+  }
+
+  function scanFence(char) {
+    if (fenceStartOfLine && char === '`') {
+      pendingFenceTicks += 1
+      return
+    }
+
+    flushFenceTicks()
+
+    if (inFence) fenceBody += char
+    fenceStartOfLine = char === '\n' || char === '\r'
+  }
+
+  function flushFenceTicks() {
+    if (pendingFenceTicks >= 3) {
+      inFence = !inFence
+      if (!inFence) {
+        const candidate = stripFenceInfoLine(fenceBody)
+        if (candidate.trim()) candidates.push(candidate)
+        fenceBody = ''
+      }
+    } else if (inFence && pendingFenceTicks > 0) {
+      fenceBody += '`'.repeat(pendingFenceTicks)
+    }
+
+    pendingFenceTicks = 0
+  }
+
+  function scanObject(char, absoluteIndex) {
+    if (objectInString) {
+      if (objectEscaped) {
+        objectEscaped = false
+      } else if (char === '\\') {
+        objectEscaped = true
+      } else if (char === '"') {
+        objectInString = false
+      }
+      return
+    }
+
+    if (char === '"') {
+      objectInString = true
+      return
+    }
+
+    if (char === '{') {
+      if (objectDepth === 0) objectStart = absoluteIndex
+      objectDepth += 1
+      return
+    }
+
+    if (char === '}') {
+      if (objectDepth === 0) return
+      objectDepth -= 1
+      if (objectDepth === 0 && objectStart !== -1) {
+        candidates.push(getRaw().slice(objectStart, absoluteIndex + 1))
+        objectStart = -1
+      }
+    }
+  }
+
+  function parseLatestCandidate() {
+    while (candidates.length > 0) {
+      const candidate = candidates[candidates.length - 1].trim()
+      candidates.pop()
+      if (!candidate) continue
+
+      try {
+        const value = JSON.parse(candidate)
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          return value
+        }
+      } catch {
+        // ignore parse failures while the stream is incomplete
+      }
+    }
+
+    return null
+  }
+
+  return { push, reset, finish }
+}
+
+function stripFenceInfoLine(text) {
+  const source = String(text || '')
+  const lineBreakIndex = source.search(/\r?\n/)
+  if (lineBreakIndex === -1) return source
+
+  const firstLine = source.slice(0, lineBreakIndex).trim()
+  if (firstLine && /^[a-z][\w-]*$/i.test(firstLine)) {
+    return source.slice(lineBreakIndex).replace(/^\r?\n/, '')
+  }
+
+  return source
 }
 
 export async function streamPlotSpec({
@@ -479,7 +629,7 @@ function createMockSpec(prompt) {
       }
     }
   }
-  if (containsAny(normalized, ['line', 'trend', '璧板娍', '瓒嬪娍'])) {
+  if (containsAny(normalized, ['line', 'trend', '走势', '趋势'])) {
     return {
       width: 640,
       height: 360,
@@ -512,7 +662,7 @@ function createMockSpec(prompt) {
     }
   }
 
-  if (containsAny(normalized, ['point', 'scatter', '鍒嗗竷', '鏁ｇ偣'])) {
+  if (containsAny(normalized, ['point', 'scatter', '分布', '散点'])) {
     return {
       width: 640,
       height: 360,
@@ -596,3 +746,4 @@ function wait(ms) {
     setTimeout(resolve, ms)
   })
 }
+
