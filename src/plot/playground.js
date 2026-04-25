@@ -629,7 +629,9 @@ function createMockSpec(prompt) {
       }
     }
   }
-  if (containsAny(normalized, ['line', 'trend', '走势', '趋势'])) {
+  if (
+    containsAny(normalized, ['line', 'trend', '\u8d70\u52bf', '\u8d8b\u52bf'])
+  ) {
     return {
       width: 640,
       height: 360,
@@ -662,7 +664,14 @@ function createMockSpec(prompt) {
     }
   }
 
-  if (containsAny(normalized, ['point', 'scatter', '分布', '散点'])) {
+  if (
+    containsAny(normalized, [
+      'point',
+      'scatter',
+      '\u5206\u5e03',
+      '\u6563\u70b9'
+    ])
+  ) {
     return {
       width: 640,
       height: 360,
@@ -746,4 +755,3 @@ function wait(ms) {
     setTimeout(resolve, ms)
   })
 }
-
