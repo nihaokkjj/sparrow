@@ -1,5 +1,5 @@
 {
-  "name": "@ksj_sparrow/sparrow",
+  "name": "@ksj_project/sparrow",
   "version": "1.0.0",
   "description": "Lightweight SVG renderer and visualization primitives.",
   "type": "module",
