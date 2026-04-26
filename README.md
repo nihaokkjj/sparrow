@@ -1,6 +1,6 @@
 # Sparrow
 
-Sparrow 是一个轻量级 SVG 可视化项目，既可以作为底层图形渲染器使用，也可以通过声明式 `SparrowPlotSpec` 快速生成图表。项目还内置了 AI Playground：输入自然语言，接收模型流式输出的 JSON 图表规格，并实时渲染为 SVG。
+Sparrow 是一个轻量级 SVG 可视化库，既可以作为底层图形渲染器使用，也可以通过声明式 `SparrowPlotSpec` 快速生成图表。项目内置 **AI Playground**：输入自然语言描述，接收大模型流式输出的 JSON 图表规格，实时渲染为 SVG。
 
 它适合这些场景：
 
@@ -8,6 +8,7 @@ Sparrow 是一个轻量级 SVG 可视化项目，既可以作为底层图形渲�
 - 用简洁 JSON 描述柱状图、折线图、散点图、饼图、面积图、热力图等常见图表。
 - 将大模型输出约束为稳定的图表规格，再渲染成可控、可测试、可导出的 SVG。
 - 在自己的项目里复用坐标系、比例尺、统计变换、轴、图例、多视图布局等基础能力。
+- 集成 AI 能力，通过自然语言描述自动生成图表。
 
 ## 项目亮点
 
@@ -16,21 +17,22 @@ Sparrow 是一个轻量级 SVG 可视化项目，既可以作为底层图形渲�
 - **声明式图表规格**：用 `SparrowPlotSpec` 描述数据、编码、比例尺、坐标系、图例、动画和布局。
 - **AI 友好**：内置模型提示词、JSON 流式解析、Mock Provider、OpenAI-compatible Provider 和浏览器 Playground。
 - **多图布局能力**：支持 `row`、`col`、`layer`、`facet`，并能自动把拥挤的长条多面板布局平衡成近似网格。
-- **动画与导出**：支持常用入场动画预设，并在 Playground 中提供 PNG 导出。
+- **动画与导出**：支持常用入场动画预设，在 Playground 中提供 PNG 和 APNG 导出。
 - **多格式产物**：构建输出 ESM、CommonJS 和 UMD，方便在不同工程中接入。
+- **MCP 工具**：内置 Model Context Protocol 服务器，方便 AI 助手调用图表能力。
 
 ## 快速开始
 
 ### 安装
 
 ```bash
-npm install @ksj_sparrow/sparrow
+npm install @ksj_project/sparrow
 ```
 
 或：
 
 ```bash
-pnpm add @ksj_sparrow/sparrow
+pnpm add @ksj_project/sparrow
 ```
 
 ### 本地运行 Playground
@@ -60,7 +62,7 @@ pnpm dev
 如果你只需要直接绘制 SVG，可以从根入口导入 `createRenderer`。
 
 ```js
-import { createRenderer } from '@ksj_sparrow/sparrow'
+import { createRenderer } from '@ksj_project/sparrow'
 
 const renderer = createRenderer(420, 240)
 
@@ -113,10 +115,10 @@ Renderer 当前提供：
 
 ### 2. 使用 Plot Spec 渲染图表
 
-如果你希望用数据和编码描述图表，可以使用 `@ksj_sparrow/sparrow/plot`。
+如果你希望用数据和编码描述图表，可以使用 `@ksj_project/sparrow/plot`。
 
 ```js
-import { renderPlotSpec } from '@ksj_sparrow/sparrow/plot'
+import { renderPlotSpec } from '@ksj_project/sparrow/plot'
 
 const result = renderPlotSpec({
   width: 640,
@@ -177,7 +179,7 @@ Prompt -> Provider -> 流式文本 -> SparrowPlotSpec JSON -> SVG
 import {
   createMockPlotProvider,
   streamPlotSpec
-} from '@ksj_sparrow/sparrow/plot'
+} from '@ksj_project/sparrow/plot'
 
 await streamPlotSpec({
   prompt: 'Create a quarterly trend line chart from Q1 to Q4',
@@ -239,7 +241,7 @@ import {
   buildProviderRequestConfig,
   createOpenAICompatibleProvider,
   streamPlotSpec
-} from '@ksj_sparrow/sparrow/plot'
+} from '@ksj_project/sparrow/plot'
 
 const requestConfig = buildProviderRequestConfig({
   connectionMode: 'proxy',
@@ -395,7 +397,7 @@ import {
   createNormalizeY,
   createStackY,
   createSymmetryY
-} from '@ksj_sparrow/sparrow'
+} from '@ksj_project/sparrow'
 ```
 
 ### Plot 入口
@@ -418,7 +420,7 @@ import {
   buildProviderRequestConfig,
   getPlotSpecPromptPreset,
   listPlotSpecPromptPresets
-} from '@ksj_sparrow/sparrow/plot'
+} from '@ksj_project/sparrow/plot'
 ```
 
 ### Guide 入口
@@ -429,13 +431,13 @@ import {
   axisY,
   legendRamp,
   legendSwatches
-} from '@ksj_sparrow/sparrow/guide'
+} from '@ksj_project/sparrow/guide'
 ```
 
 ### Views 入口
 
 ```js
-import { createViews } from '@ksj_sparrow/sparrow/views'
+import { createViews } from '@ksj_project/sparrow/views'
 ```
 
 ## Playground 功能
@@ -448,7 +450,17 @@ import { createViews } from '@ksj_sparrow/sparrow/views'
 - Prompt preset / Skill mode 选择，默认使用仓库内 `sparrow-spec-creator` 规格提示词。
 - 自动布局开关，用于控制多面板图表是否自动平衡。
 - 流式输出查看、实时 JSON 解析、SVG 预览。
-- 重新渲染、停止动画、导出 PNG。
+- 重新渲染、停止动画、导出 PNG 和 APNG。
+
+## MCP 服务
+
+项目提供 MCP (Model Context Protocol) 服务器，可以作为 AI 助手调用 Sparrow 图表能力的工具：
+
+```bash
+pnpm mcp
+```
+
+启动后，AI 助手可以通过 MCP 协议调用 Sparrow 的图表渲染能力，实现自然语言生成图表、工作流编排等功能。详细用法请参考 `mcp/` 目录。
 
 ## 目录结构
 
@@ -462,7 +474,9 @@ src/
   guide/         坐标轴、网格、图例
   views/         row、col、layer、facet 视图布局
   plot/          声明式图表语法、AI 规格渲染和 Playground Provider
-  playground/    Playground 辅助能力，例如 PNG 导出
+  playground/    Playground 辅助能力，例如 PNG/APNG 导出
+mcp/
+  server.js      MCP 服务器实现
 skills/
   sparrow-spec-creator/       面向模型生成图表规格的 Skill
   sparrow-core-contributor/   面向项目开发维护的 Skill
