@@ -727,6 +727,82 @@ function renderStoredStreamSlots(renderPreferences) {
   }
 }
 
+function createStreamSlotExportSpec() {
+  const dimensions =
+    lastStreamSlotState?.dimensions || lastRenderedDimensions || {
+      width: parseInt(canvasWidthInput.value) || 640,
+      height: parseInt(canvasHeightInput.value) || 480
+    }
+
+  return {
+    width: dimensions.width,
+    height: dimensions.height
+  }
+}
+
+function createStreamSlotExportRender(renderPreferences = {}) {
+  return (_spec, renderOptions = {}) => {
+    const dimensions =
+      lastStreamSlotState?.dimensions || lastRenderedDimensions || {
+        width: renderOptions.width || parseInt(canvasWidthInput.value) || 640,
+        height: renderOptions.height || parseInt(canvasHeightInput.value) || 480
+      }
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('width', String(dimensions.width))
+    svg.setAttribute('height', String(dimensions.height))
+    svg.setAttribute('viewBox', `0 0 ${dimensions.width} ${dimensions.height}`)
+
+    const frames = getStreamSlotFrames(
+      lastStreamSlotState.layout,
+      dimensions.width,
+      dimensions.height
+    )
+    const charts = lastStreamSlotState.charts
+    const results = []
+
+    frames.forEach((slot) => {
+      const event = charts.get(slot.id)
+      if (!event?.spec) return
+
+      const container = document.createElement('div')
+      const result = renderAISpec(
+        {
+          ...getEffectiveSpec(cloneSpec(event.spec)),
+          width: slot.width,
+          height: slot.height
+        },
+        {
+          ...renderPreferences,
+          ...renderOptions,
+          container,
+          width: slot.width,
+          height: slot.height
+        }
+      )
+      const child = result?.node
+      if (!child || child.tagName?.toLowerCase() !== 'svg') return
+
+      child.setAttribute('x', String(slot.x))
+      child.setAttribute('y', String(slot.y))
+      child.setAttribute('width', String(slot.width))
+      child.setAttribute('height', String(slot.height))
+      svg.appendChild(child)
+      results.push(result)
+    })
+
+    return {
+      node: svg,
+      plots: results.flatMap((result) => result.plots || []),
+      marks: results.flatMap((result) => result.marks || []),
+      views: results.flatMap((result) => result.views || []),
+      playAnimations: () =>
+        results.flatMap((result) => result.playAnimations?.() || []),
+      stopAnimations: () =>
+        results.forEach((result) => result.stopAnimations?.())
+    }
+  }
+}
+
 function autoLayoutStoredSpec() {
   if (!lastRenderedSpec) {
     setStatus('当前还没有可自动排版的 JSON 规范。')
@@ -762,9 +838,15 @@ async function exportRenderedImage() {
   setStatus('正在导出 PNG 图片…', 'live')
 
   try {
-    await exportSpecAsPNG(cloneSpec(lastRenderedSpec), {
+    const exportSpec = lastStreamSlotState
+      ? createStreamSlotExportSpec()
+      : cloneSpec(lastRenderedSpec)
+    await exportSpecAsPNG(exportSpec, {
       ...(lastRenderedDimensions || {}),
       ...getRenderPreferences(),
+      ...(lastStreamSlotState && {
+        render: createStreamSlotExportRender(getRenderPreferences())
+      }),
       filename: createExportFilename('png')
     })
     setStatus('已下载当前图表的 PNG 图片。', 'ok')
@@ -787,9 +869,15 @@ async function exportRenderedAPNG() {
   setStatus('正在导出 APNG 动图…', 'live')
 
   try {
-    await exportSpecAsAPNG(cloneSpec(lastRenderedSpec), {
+    const exportSpec = lastStreamSlotState
+      ? createStreamSlotExportSpec()
+      : cloneSpec(lastRenderedSpec)
+    await exportSpecAsAPNG(exportSpec, {
       ...(lastRenderedDimensions || {}),
       ...getRenderPreferences(),
+      ...(lastStreamSlotState && {
+        render: createStreamSlotExportRender(getRenderPreferences())
+      }),
       filename: createExportFilename('apng')
     })
     setStatus('已下载当前图表的 APNG 动图。', 'ok')
@@ -978,6 +1066,18 @@ if (hasPlaygroundPage) {
   rerenderButton.addEventListener('click', renderStoredSpec)
   helpTriggerButton?.addEventListener('click', toggleHelpModal)
   helpCloseButton?.addEventListener('click', closeHelpModal)
+
+  document.querySelectorAll('.example-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.dataset.prompt
+      if (prompt && promptInput) {
+        promptInput.value = prompt
+        closeHelpModal()
+        form.dispatchEvent(new Event('submit'))
+      }
+    })
+  })
+
   exportMenuButton.addEventListener('click', (event) => {
     event.stopPropagation()
     toggleExportMenu()

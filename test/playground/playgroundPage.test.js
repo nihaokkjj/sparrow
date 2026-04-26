@@ -176,6 +176,12 @@ test('playground page script works with the current index.html DOM contract', as
   document.getElementById('rerender').click()
   expect(mocks.renderAISpec).toHaveBeenCalledTimes(renderCount + 1)
   expect(document.querySelector('[data-slot="main"]')).not.toBeNull()
+  document.getElementById('export-image').click()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(mocks.exportSpecAsPNG).toHaveBeenCalledWith(
+    expect.objectContaining({ width: 640, height: 480 }),
+    expect.objectContaining({ render: expect.any(Function) })
+  )
   expect(document.getElementById('summary').hidden).toBe(false)
   expect(document.getElementById('summary').textContent).toContain('1 条数据')
 })
