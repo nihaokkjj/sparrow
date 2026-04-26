@@ -5,21 +5,41 @@ const mocks = vi.hoisted(() => ({
     node: null,
     stopAnimations: vi.fn()
   })),
-  streamPlotSpec: vi.fn(async ({ render, onSpec, onRender }) => {
-    const spec = {
-      plot: {
-        type: 'point',
-        data: [{ x: 1, y: 2 }],
-        encodings: { x: 'x', y: 'y' }
+  streamPlotSpec: vi.fn(
+    async ({ render, onLayout, onChart, onSpec, onRender, streamFormat }) => {
+      const chartSpec = {
+        plot: {
+          type: 'point',
+          data: [{ x: 1, y: 2 }],
+          encodings: { x: 'x', y: 'y' }
+        }
       }
+      const spec = {
+        view: {
+          type: 'row',
+          children: [chartSpec]
+        }
+      }
+      const layout = {
+        slots: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }],
+        slotFrames: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }]
+      }
+      const snapshot = { layout, spec, charts: [{ id: 'main', spec: chartSpec }] }
+
+      if (streamFormat === 'ndjson') {
+        onLayout?.({ type: 'layout', layout }, snapshot)
+        onChart?.({ type: 'chart', id: 'main', spec: chartSpec }, snapshot)
+      }
+
+      onSpec?.(spec)
+      const result = render
+        ? render(spec, { container: document.getElementById('preview') })
+        : { node: null }
+      onRender?.(result, spec)
+
+      return { spec, result }
     }
-
-    onSpec?.(spec)
-    const result = render ? render(spec, { container: document.getElementById('preview') }) : { node: null }
-    onRender?.(result, spec)
-
-    return { spec, result }
-  }),
+  ),
   exportSpecAsPNG: vi.fn(async () => {}),
   exportSpecAsAPNG: vi.fn(async () => {})
 }))
@@ -36,13 +56,10 @@ vi.mock('../../src/plot/index.js', () => ({
         : '/api/openai',
     headers: {}
   }),
-  createOpenAICompatibleProvider: () => ({
+  createOpenAICompatibleProvider: vi.fn((config) => ({
+    config,
     stream: async function* () {}
-  }),
-  createPlotSpecChunkBuffer: () => ({
-    push: () => null,
-    finish: () => null
-  }),
+  })),
   getDefaultPlaygroundProviderSettings: () => ({
     connectionMode: 'proxy',
     targetBaseURL: '',
@@ -141,8 +158,24 @@ test('playground page script works with the current index.html DOM contract', as
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(mocks.streamPlotSpec).toHaveBeenCalledTimes(1)
+  expect(mocks.streamPlotSpec.mock.calls[0][0].streamFormat).toBe('ndjson')
+  expect(mocks.streamPlotSpec.mock.calls[0][0].onLayout).toEqual(expect.any(Function))
+  expect(mocks.streamPlotSpec.mock.calls[0][0].onChart).toEqual(expect.any(Function))
   expect(document.getElementById('status-text').textContent).toContain('完成')
   expect(document.getElementById('status-dot')).not.toBeNull()
+  expect(document.querySelector('[data-slot="main"]')).not.toBeNull()
+  expect(mocks.renderAISpec).toHaveBeenCalledWith(
+    expect.objectContaining({ width: 320, height: 240 }),
+    expect.objectContaining({
+      container: document.querySelector('[data-slot="main"]'),
+      width: 320,
+      height: 240
+    })
+  )
+  const renderCount = mocks.renderAISpec.mock.calls.length
+  document.getElementById('rerender').click()
+  expect(mocks.renderAISpec).toHaveBeenCalledTimes(renderCount + 1)
+  expect(document.querySelector('[data-slot="main"]')).not.toBeNull()
   expect(document.getElementById('summary').hidden).toBe(false)
   expect(document.getElementById('summary').textContent).toContain('1 条数据')
 })

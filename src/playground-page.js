@@ -4,7 +4,6 @@ import {
   applyPlaygroundAnimationPreference,
   buildProviderRequestConfig,
   createOpenAICompatibleProvider,
-  createPlotSpecChunkBuffer,
   getDefaultPlaygroundProviderSettings,
   getPlaygroundProviderProfile,
   getPlotSpecPromptPreset,
@@ -92,6 +91,8 @@ let lastRenderedSpec = null
 let lastRenderResult = null
 let lastRenderedDimensions = null
 let isExportingImage = false
+let streamSlotRenderer = null
+let lastStreamSlotState = null
 let activeProvider = DEFAULT_PLAYGROUND_PROVIDER
 let lastFocusedNodeBeforeHelp = null
 
@@ -147,6 +148,22 @@ const autoLayoutMarkTypes = new Set([
   'cell',
   'text'
 ])
+
+
+const ndjsonStreamPromptSuffix = [
+  'Output NDJSON only: one valid JSON object per line, no markdown fences and no prose.',
+  'For multi-panel requests, first emit {"type":"layout","width": number, "height": number, "layout":{"type":"absolute","slots":[{"id":"slot-id","x":0,"y":0,"width":320,"height":240}]}}.',
+  'Then emit one {"type":"chart","id":"slot-id","spec": SparrowPlotSpecLeafOrViewChild } line per panel as soon as it is ready; each chart is rendered only inside its slot rectangle.',
+  'For a single chart, emit one chart line with id "main".',
+  'Finish with {"type":"done"}.',
+  'Each chart spec must be independently renderable as {"plot": {...}}, {"plots": [...]}, or a valid view child.'
+].join(' ')
+
+function withNDJSONStreamInstructions(systemPrompt) {
+  return `${systemPrompt}
+
+${ndjsonStreamPromptSuffix}`
+}
 
 function cloneSpec(spec) {
   if (spec === null || spec === undefined) return spec
@@ -437,6 +454,135 @@ function setPreviewPlaceholder(text) {
   previewNode.innerHTML = `<div class="empty-state"><div>${text}</div></div>`
 }
 
+function createStreamSlotRenderer({ width, height, renderPreferences }) {
+  const root = document.createElement('div')
+  root.className = 'stream-slot-preview'
+  root.style.position = 'relative'
+  root.style.width = `${width}px`
+  root.style.height = `${height}px`
+  root.style.overflow = 'hidden'
+
+  const slotMap = new Map()
+  const pendingCharts = new Map()
+  let layout = null
+
+  previewNode.replaceChildren(root)
+
+  function applyLayout(nextLayout) {
+    layout = nextLayout
+    root.replaceChildren()
+    slotMap.clear()
+
+    const frames = getStreamSlotFrames(nextLayout, width, height)
+    frames.forEach((slot) => {
+      const node = document.createElement('div')
+      node.className = 'stream-slot-preview__slot'
+      node.dataset.slot = slot.id
+      node.style.position = 'absolute'
+      node.style.left = `${slot.x}px`
+      node.style.top = `${slot.y}px`
+      node.style.width = `${slot.width}px`
+      node.style.height = `${slot.height}px`
+      node.style.overflow = 'hidden'
+      root.appendChild(node)
+      slotMap.set(slot.id, { slot, node, result: null })
+    })
+
+    for (const [id, event] of pendingCharts) {
+      renderChart(event)
+      pendingCharts.delete(id)
+    }
+  }
+
+  function renderChart(event) {
+    if (!event?.spec) return null
+    const id = String(event.id || event.slot || event.key || 'main')
+    const entry = slotMap.get(id) || ensureFallbackSlot(id)
+    if (!entry) {
+      pendingCharts.set(id, event)
+      return null
+    }
+
+    entry.result?.stopAnimations?.()
+    const scopedSpec = {
+      ...event.spec,
+      width: entry.slot.width,
+      height: entry.slot.height
+    }
+    entry.result = renderAISpec(scopedSpec, {
+      container: entry.node,
+      ...renderPreferences,
+      width: entry.slot.width,
+      height: entry.slot.height
+    })
+    return entry.result
+  }
+
+  function ensureFallbackSlot(id) {
+    if (slotMap.size > 0) return null
+    applyLayout({ slots: [{ id, x: 0, y: 0, width, height }] })
+    return slotMap.get(id)
+  }
+
+  function stop() {
+    slotMap.forEach((entry) => entry.result?.stopAnimations?.())
+  }
+
+  return { applyLayout, renderChart, stop, getLayout: () => layout }
+}
+
+function getStreamSlotFrames(layout, width, height) {
+  const frames = Array.isArray(layout?.slotFrames)
+    ? layout.slotFrames
+    : Array.isArray(layout?.slots)
+      ? layout.slots.map((slot) =>
+          typeof slot === 'object' ? slot : { id: String(slot) }
+        )
+      : []
+
+  if (frames.length === 0) {
+    return [{ id: 'main', x: 0, y: 0, width, height }]
+  }
+
+  const needsGrid = frames.some(
+    (slot) =>
+      !Number.isFinite(slot.x) ||
+      !Number.isFinite(slot.y) ||
+      !Number.isFinite(slot.width) ||
+      !Number.isFinite(slot.height)
+  )
+  if (!needsGrid) return frames.map((slot) => normalizeSlotFrame(slot, width, height))
+
+  const columns = Math.ceil(Math.sqrt(frames.length))
+  const rows = Math.ceil(frames.length / columns)
+  const cellWidth = width / columns
+  const cellHeight = height / rows
+
+  return frames.map((slot, index) =>
+    normalizeSlotFrame(
+      {
+        ...slot,
+        x: (index % columns) * cellWidth,
+        y: Math.floor(index / columns) * cellHeight,
+        width: cellWidth,
+        height: cellHeight
+      },
+      width,
+      height
+    )
+  )
+}
+
+function normalizeSlotFrame(slot, fallbackWidth, fallbackHeight) {
+  return {
+    id: String(slot.id || slot.slot || slot.key || 'main'),
+    x: Number.isFinite(slot.x) ? slot.x : 0,
+    y: Number.isFinite(slot.y) ? slot.y : 0,
+    width: Number.isFinite(slot.width) ? slot.width : fallbackWidth,
+    height: Number.isFinite(slot.height) ? slot.height : fallbackHeight
+  }
+}
+
 function isExportMenuOpen() {
   if (exportMenuRoot) {
     return exportMenuRoot.classList.contains('open')
@@ -481,9 +627,31 @@ function rememberRenderedSpec(spec, dimensions) {
   syncChartActionButtons()
 }
 
+function rememberStreamSlotLayout(layout, dimensions, renderPreferences) {
+  lastStreamSlotState = {
+    layout: cloneSpec(layout),
+    charts: new Map(),
+    dimensions: dimensions ? { ...dimensions } : null,
+    renderPreferences: { ...renderPreferences }
+  }
+}
+
+function rememberStreamSlotChart(event) {
+  if (!lastStreamSlotState || !event?.spec) return
+  const id = String(event.id || event.slot || event.key || 'main')
+  lastStreamSlotState.charts.set(id, {
+    ...event,
+    id,
+    spec: cloneSpec(event.spec)
+  })
+}
+
 function clearRenderedSpec() {
   lastRenderedSpec = null
   lastRenderResult = null
+  streamSlotRenderer?.stop?.()
+  streamSlotRenderer = null
+  lastStreamSlotState = null
   lastRenderedDimensions = null
   isExportingImage = false
   setSummary('暂无图表规范', false)
@@ -499,11 +667,15 @@ function renderStoredSpec(options = {}) {
   try {
     const renderPreferences = getRenderPreferences(options.renderPreferences)
     lastRenderResult?.stopAnimations?.()
-    lastRenderResult = renderAISpec(cloneSpec(lastRenderedSpec), {
-      container: previewNode,
-      ...renderPreferences,
-      ...(lastRenderedDimensions || {})
-    })
+    if (lastStreamSlotState) {
+      renderStoredStreamSlots(renderPreferences)
+    } else {
+      lastRenderResult = renderAISpec(getEffectiveSpec(cloneSpec(lastRenderedSpec)), {
+        container: previewNode,
+        ...renderPreferences,
+        ...(lastRenderedDimensions || {})
+      })
+    }
 
     if (options.successMessage) {
       setStatus(options.successMessage, 'ok')
@@ -523,6 +695,35 @@ function renderStoredSpec(options = {}) {
     )
   } catch (error) {
     setStatus(error?.message || '重新渲染失败。', 'error')
+  }
+}
+
+function renderStoredStreamSlots(renderPreferences) {
+  const dimensions =
+    lastStreamSlotState.dimensions || lastRenderedDimensions || {
+      width: parseInt(canvasWidthInput.value) || 640,
+      height: parseInt(canvasHeightInput.value) || 480
+    }
+
+  streamSlotRenderer?.stop?.()
+  streamSlotRenderer = createStreamSlotRenderer({
+    width: dimensions.width,
+    height: dimensions.height,
+    renderPreferences
+  })
+  streamSlotRenderer.applyLayout(lastStreamSlotState.layout)
+
+  for (const event of lastStreamSlotState.charts.values()) {
+    streamSlotRenderer.renderChart({
+      ...event,
+      spec: getEffectiveSpec(cloneSpec(event.spec))
+    })
+  }
+
+  lastRenderResult = {
+    node: previewNode,
+    spec: lastRenderedSpec,
+    stopAnimations: () => streamSlotRenderer?.stop?.()
   }
 }
 
@@ -816,12 +1017,13 @@ if (hasPlaygroundPage) {
     controller?.abort()
     controller = new AbortController()
 
-    const buffer = createPlotSpecChunkBuffer()
     const promptPreset = getPlotSpecPromptPreset(promptPresetSelect.value)
     let provider
 
     try {
-      provider = createConfiguredProvider(promptPreset.systemPrompt)
+      provider = createConfiguredProvider(
+        withNDJSONStreamInstructions(promptPreset.systemPrompt)
+      )
     } catch (error) {
       setStatus(error?.message || 'Provider 配置失败。', 'error')
       return
@@ -841,19 +1043,29 @@ if (hasPlaygroundPage) {
     try {
       const canvasWidth = parseInt(canvasWidthInput.value) || 640
       const canvasHeight = parseInt(canvasHeightInput.value) || 480
+      const renderPreferences = getRenderPreferences()
 
       previewNode.style.width = `${canvasWidth}px`
       previewNode.style.height = `${canvasHeight}px`
       previewNode.style.margin = '0 auto'
+      streamSlotRenderer = createStreamSlotRenderer({
+        width: canvasWidth,
+        height: canvasHeight,
+        renderPreferences
+      })
 
-      const promptWithSize = `画布尺寸: ${canvasWidth}x${canvasHeight}。${prompt}`
+      const promptWithSize = `Canvas size: ${canvasWidth}x${canvasHeight}. Put id, x, y, width, and height in layout.slots for each chart. ${prompt}`
 
       const result = await streamPlotSpec({
         prompt: promptWithSize,
         provider,
-        buffer,
+        streamFormat: 'ndjson',
         signal: controller.signal,
         render(spec, renderOptions) {
+          if (streamSlotRenderer?.getLayout?.()) {
+            return { node: previewNode, spec }
+          }
+
           const effectiveSpec = getEffectiveSpec(spec)
           return renderAISpec(
             {
@@ -863,7 +1075,7 @@ if (hasPlaygroundPage) {
             },
             {
               ...renderOptions,
-              ...getRenderPreferences(),
+              ...renderPreferences,
               width: canvasWidth,
               height: canvasHeight
             }
@@ -871,12 +1083,40 @@ if (hasPlaygroundPage) {
         },
         renderOptions: {
           container: previewNode,
-          ...getRenderPreferences(),
+          ...renderPreferences,
           width: canvasWidth,
           height: canvasHeight
         },
         onChunk(chunk, text) {
           streamLogNode.textContent = text
+        },
+        onLayout(event, snapshot) {
+          const layout = snapshot.layout || event.layout || event
+          streamSlotRenderer?.applyLayout(layout)
+          rememberStreamSlotLayout(
+            layout,
+            { width: canvasWidth, height: canvasHeight },
+            renderPreferences
+          )
+          setStatus('Layout received; waiting for chart chunks...', 'live')
+        },
+        onChart(event, snapshot) {
+          rememberStreamSlotChart(event)
+          const partialResult = streamSlotRenderer?.renderChart({
+            ...event,
+            spec: getEffectiveSpec(event.spec)
+          })
+          if (partialResult) {
+            lastRenderResult = {
+              node: previewNode,
+              spec: snapshot.spec,
+              stopAnimations: () => streamSlotRenderer?.stop?.()
+            }
+          }
+          setStatus(
+            `Received ${snapshot.charts.length} chart chunk(s); rendering incrementally...`,
+            'live'
+          )
         },
         onSpec(spec) {
           const effectiveSpec = getEffectiveSpec(spec)

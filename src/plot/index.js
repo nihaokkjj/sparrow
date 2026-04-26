@@ -17,6 +17,7 @@ export {
 export {
   createPlotSpecMessages,
   parsePlotSpecResponse,
+  createPlotSpecNDJSONBuffer,
   createPlotSpecChunkBuffer,
   streamPlotSpec,
   createOpenAICompatibleProvider,

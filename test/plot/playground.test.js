@@ -4,6 +4,7 @@ import {
   createPlotSpecMessages,
   createMockPlotProvider,
   createOpenAICompatibleProvider,
+  createPlotSpecNDJSONBuffer,
   createPlotSpecChunkBuffer,
   parsePlotSpecResponse,
   streamPlotSpec
@@ -123,6 +124,105 @@ test('streamPlotSpec() runs prompt -> provider -> chunk buffer -> spec -> render
   expect(render).toHaveBeenCalledTimes(1)
   expect(onRender).toHaveBeenCalledTimes(1)
   expect(result.spec.plot.type).toBe('interval')
+})
+
+
+
+test('createPlotSpecNDJSONBuffer() emits complete line events', () => {
+  const buffer = createPlotSpecNDJSONBuffer()
+  const first = buffer.push('{"type":"layout","layout":{"type":"row","slots":["a","b"]}}\n{"type":"chart"')
+  const second = buffer.push(',"id":"a","spec":{"plot":{"type":"point","data":[{"x":1,"y":2}],"encodings":{"x":"x","y":"y"}}}}\n')
+
+  expect(first).toHaveLength(1)
+  expect(first[0].type).toBe('layout')
+  expect(second).toHaveLength(1)
+  expect(second[0].type).toBe('chart')
+  expect(second[0].spec.plot.type).toBe('point')
+})
+
+test('streamPlotSpec() incrementally renders NDJSON chart events', async () => {
+  const events = [
+    { type: 'layout', layout: { type: 'row', slots: ['bars', 'trend'] } },
+    {
+      type: 'chart',
+      id: 'bars',
+      spec: {
+        plot: {
+          type: 'interval',
+          data: [{ category: 'A', value: 3 }],
+          encodings: { x: 'category', y: 'value' }
+        }
+      }
+    },
+    {
+      type: 'chart',
+      id: 'trend',
+      spec: {
+        plot: {
+          type: 'line',
+          data: [{ step: 'Q1', value: 2 }],
+          encodings: { x: 'step', y: 'value' }
+        }
+      }
+    },
+    { type: 'done' }
+  ]
+  const provider = {
+    async *stream() {
+      const text = events.map((event) => JSON.stringify(event)).join('\n') + '\n'
+      for (let index = 0; index < text.length; index += 17) {
+        yield text.slice(index, index + 17)
+      }
+    }
+  }
+  const render = vi.fn((spec) => ({ node: null, spec }))
+  const onEvent = vi.fn()
+  const onChart = vi.fn()
+
+  const result = await streamPlotSpec({
+    prompt: 'make dashboard',
+    provider,
+    streamFormat: 'ndjson',
+    render,
+    onEvent,
+    onChart
+  })
+
+  expect(onEvent).toHaveBeenCalledTimes(4)
+  expect(onChart).toHaveBeenCalledTimes(2)
+  expect(render).toHaveBeenCalledTimes(2)
+  expect(result.spec.view.children).toHaveLength(2)
+  expect(result.spec.view.children[0].plot.type).toBe('interval')
+  expect(result.spec.view.children[1].plot.type).toBe('line')
+})
+
+
+
+test('streamPlotSpec() falls back to full JSON in NDJSON mode', async () => {
+  const provider = {
+    async *stream() {
+      yield '```json\n'
+      yield JSON.stringify({
+        plot: {
+          type: 'point',
+          data: [{ x: 1, y: 2 }],
+          encodings: { x: 'x', y: 'y' }
+        }
+      })
+      yield '\n```'
+    }
+  }
+  const render = vi.fn((spec) => ({ node: null, spec }))
+
+  const result = await streamPlotSpec({
+    prompt: 'make point chart',
+    provider,
+    streamFormat: 'ndjson',
+    render
+  })
+
+  expect(result.spec.plot.type).toBe('point')
+  expect(render).toHaveBeenCalledTimes(1)
 })
 
 test('streamPlotSpec() renders view specs with the default AI renderer', async () => {

@@ -41,6 +41,39 @@ export function parsePlotSpecResponse(text) {
   return null
 }
 
+export function createPlotSpecNDJSONBuffer() {
+  let raw = ''
+  let pending = ''
+
+  return {
+    push(chunk) {
+      const text = normalizeChunk(chunk)
+      raw += text
+      pending += text
+
+      const lines = pending.split(/\r?\n/)
+      pending = lines.pop() || ''
+
+      return lines.map(parsePlotSpecStreamEvent).filter(Boolean)
+    },
+    reset() {
+      raw = ''
+      pending = ''
+    },
+    finish() {
+      const tail = pending.trim()
+      pending = ''
+      return tail ? [parsePlotSpecStreamEvent(tail)].filter(Boolean) : []
+    },
+    getSpec() {
+      return parsePlotSpecResponse(raw)
+    },
+    getText() {
+      return raw
+    }
+  }
+}
+
 export function createPlotSpecChunkBuffer({
   parse = parsePlotSpecResponse
 } = {}) {
@@ -233,15 +266,183 @@ function stripFenceInfoLine(text) {
   return source
 }
 
+function parsePlotSpecStreamEvent(line) {
+  const source = String(line || '').trim()
+  if (!source) return null
+
+  try {
+    return normalizePlotSpecStreamEvent(JSON.parse(source))
+  } catch {
+    return null
+  }
+}
+
+function normalizePlotSpecStreamEvent(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const type = typeof value.type === 'string' ? value.type.toLowerCase() : ''
+  if (type === 'layout') {
+    return {
+      ...value,
+      type,
+      layout: value.layout || value.view || value.spec?.view || null
+    }
+  }
+
+  if (type === 'chart' || type === 'plot') {
+    const spec = value.spec || (value.plot ? { plot: value.plot } : value.view)
+    if (!spec || typeof spec !== 'object') return null
+
+    return {
+      ...value,
+      type: 'chart',
+      id: value.id || value.slot || value.key || null,
+      spec
+    }
+  }
+
+  if (type === 'spec') {
+    const spec = value.spec || value.payload || null
+    if (!spec || typeof spec !== 'object') return null
+    return { ...value, type, spec }
+  }
+
+  if (type === 'done' || type === 'error' || type === 'start') {
+    return { ...value, type }
+  }
+
+  return null
+}
+
+function createPlotSpecStreamEventState() {
+  let layout = null
+  let title = ''
+  let done = false
+  let latestSpec = null
+  const chartOrder = []
+  const charts = new Map()
+
+  return {
+    apply(event) {
+      if (!event) return snapshot()
+
+      if (event.type === 'start') {
+        title = event.title || title
+      } else if (event.type === 'layout') {
+        layout = normalizeStreamLayout(event.layout || event)
+        title = event.title || title
+      } else if (event.type === 'chart') {
+        const id = String(event.id || `chart-${chartOrder.length + 1}`)
+        if (!charts.has(id)) chartOrder.push(id)
+        charts.set(id, { id, spec: event.spec, event })
+        latestSpec = assembleStreamSpec({ layout, chartOrder, charts, title })
+      } else if (event.type === 'spec') {
+        latestSpec = event.spec
+      } else if (event.type === 'done') {
+        done = true
+        latestSpec = latestSpec || assembleStreamSpec({ layout, chartOrder, charts, title })
+      }
+
+      return snapshot()
+    },
+    getSpec() {
+      return latestSpec
+    },
+    hasEvents() {
+      return Boolean(layout || title || done || chartOrder.length > 0 || latestSpec)
+    }
+  }
+
+  function snapshot() {
+    return {
+      layout,
+      title,
+      done,
+      spec: latestSpec,
+      charts: chartOrder.map((id) => charts.get(id))
+    }
+  }
+}
+
+function normalizeStreamLayout(layout) {
+  if (!layout || typeof layout !== 'object') return null
+  const view = layout.view || layout
+  const rawSlots = Array.isArray(layout.slots)
+    ? layout.slots
+    : Array.isArray(view.slots)
+      ? view.slots
+      : Array.isArray(view.children)
+        ? view.children
+        : []
+  const slotFrames = rawSlots.map(normalizeStreamLayoutSlot).filter(Boolean)
+  const slots = slotFrames.map((slot) => slot.id)
+
+  return {
+    ...layout,
+    view: {
+      type: view.type || layout.type || 'row',
+      ...(view.padding !== undefined && { padding: view.padding })
+    },
+    slots,
+    slotFrames
+  }
+}
+
+function normalizeStreamLayoutSlot(slot, index) {
+  if (typeof slot === 'string' || typeof slot === 'number') {
+    return { id: String(slot) }
+  }
+
+  if (!slot || typeof slot !== 'object') return null
+  const id = slot.id || slot.slot || slot.key || `chart-${index + 1}`
+  return {
+    ...slot,
+    id: String(id),
+    ...(Number.isFinite(Number(slot.x)) && { x: Number(slot.x) }),
+    ...(Number.isFinite(Number(slot.y)) && { y: Number(slot.y) }),
+    ...(Number.isFinite(Number(slot.width)) && { width: Number(slot.width) }),
+    ...(Number.isFinite(Number(slot.height)) && { height: Number(slot.height) })
+  }
+}
+
+function assembleStreamSpec({ layout, chartOrder, charts, title }) {
+  const orderedIds = layout?.slots?.length ? layout.slots : chartOrder
+  const children = orderedIds
+    .map((id) => charts.get(id)?.spec)
+    .filter((spec) => spec && typeof spec === 'object')
+
+  if (children.length === 0) return null
+  if (!layout && children.length === 1) return children[0]
+
+  return {
+    ...(title && { title }),
+    ...(layout?.width && { width: layout.width }),
+    ...(layout?.height && { height: layout.height }),
+    ...(layout?.padding !== undefined && { padding: layout.padding }),
+    view: {
+      type: layout?.view?.type || 'row',
+      ...(layout?.view?.padding !== undefined && { padding: layout.view.padding }),
+      children
+    }
+  }
+}
+
 export async function streamPlotSpec({
   prompt,
   provider,
   render = renderAISpec,
   renderOptions,
-  buffer = createPlotSpecChunkBuffer(),
+  streamFormat = 'json',
+  buffer =
+    streamFormat === 'ndjson'
+      ? createPlotSpecNDJSONBuffer()
+      : createPlotSpecChunkBuffer(),
   signal,
   onStart,
   onChunk,
+  onEvent,
+  onLayout,
+  onChart,
   onSpec,
   onRender,
   onComplete,
@@ -255,15 +456,36 @@ export async function streamPlotSpec({
     onStart?.({ prompt })
 
     const source = await requestProviderStream(provider, prompt, { signal })
+    const eventState =
+      streamFormat === 'ndjson' ? createPlotSpecStreamEventState() : null
     let result = null
+    let spec = null
 
     for await (const chunk of readTextChunks(source)) {
       if (!chunk) continue
 
-      const spec = buffer.push(chunk)
+      const parsed = buffer.push(chunk)
       const text = buffer.getText()
       onChunk?.(chunk, text)
 
+      if (eventState) {
+        for (const event of parsed) {
+          const snapshot = eventState.apply(event)
+          onEvent?.(event, snapshot, text)
+          if (event.type === 'layout') onLayout?.(event, snapshot, text)
+          if (event.type === 'chart') onChart?.(event, snapshot, text)
+
+          if (snapshot.spec && snapshot.spec !== spec) {
+            spec = snapshot.spec
+            onSpec?.(spec, text, snapshot)
+            result = render(spec, renderOptions)
+            onRender?.(result, spec, text, snapshot)
+          }
+        }
+        continue
+      }
+
+      spec = parsed
       if (spec) {
         onSpec?.(spec, text)
         result = render(spec, renderOptions)
@@ -271,7 +493,25 @@ export async function streamPlotSpec({
       }
     }
 
-    const spec = buffer.finish()
+    if (eventState) {
+      for (const event of buffer.finish()) {
+        const snapshot = eventState.apply(event)
+        const text = buffer.getText()
+        onEvent?.(event, snapshot, text)
+        if (event.type === 'layout') onLayout?.(event, snapshot, text)
+        if (event.type === 'chart') onChart?.(event, snapshot, text)
+        if (snapshot.spec && snapshot.spec !== spec) {
+          spec = snapshot.spec
+          onSpec?.(spec, text, snapshot)
+          result = render(spec, renderOptions)
+          onRender?.(result, spec, text, snapshot)
+        }
+      }
+      spec = eventState.getSpec() || buffer.getSpec?.() || null
+    } else {
+      spec = buffer.finish()
+    }
+
     if (!spec) {
       throw new Error(
         'Provider output did not contain a valid SparrowPlotSpec JSON object.'
