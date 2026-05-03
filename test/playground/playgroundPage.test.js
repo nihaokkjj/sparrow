@@ -1,48 +1,58 @@
-import { expect, test, vi } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  renderAISpec: vi.fn(() => ({
-    node: null,
-    stopAnimations: vi.fn()
-  })),
-  streamPlotSpec: vi.fn(
-    async ({ render, onLayout, onChart, onSpec, onRender, streamFormat }) => {
-      const chartSpec = {
-        plot: {
-          type: 'point',
-          data: [{ x: 1, y: 2 }],
-          encodings: { x: 'x', y: 'y' }
-        }
+const mocks = vi.hoisted(() => {
+  const defaultStreamPlotSpec = async ({
+    render,
+    onLayout,
+    onChart,
+    onSpec,
+    onRender,
+    streamFormat
+  }) => {
+    const chartSpec = {
+      plot: {
+        type: 'point',
+        data: [{ x: 1, y: 2 }],
+        encodings: { x: 'x', y: 'y' }
       }
-      const spec = {
-        view: {
-          type: 'row',
-          children: [chartSpec]
-        }
-      }
-      const layout = {
-        slots: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }],
-        slotFrames: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }]
-      }
-      const snapshot = { layout, spec, charts: [{ id: 'main', spec: chartSpec }] }
-
-      if (streamFormat === 'ndjson') {
-        onLayout?.({ type: 'layout', layout }, snapshot)
-        onChart?.({ type: 'chart', id: 'main', spec: chartSpec }, snapshot)
-      }
-
-      onSpec?.(spec)
-      const result = render
-        ? render(spec, { container: document.getElementById('preview') })
-        : { node: null }
-      onRender?.(result, spec)
-
-      return { spec, result }
     }
-  ),
-  exportSpecAsPNG: vi.fn(async () => {}),
-  exportSpecAsAPNG: vi.fn(async () => {})
-}))
+    const spec = {
+      view: {
+        type: 'row',
+        children: [chartSpec]
+      }
+    }
+    const layout = {
+      slots: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }],
+      slotFrames: [{ id: 'main', x: 0, y: 0, width: 320, height: 240 }]
+    }
+    const snapshot = { layout, spec, charts: [{ id: 'main', spec: chartSpec }] }
+
+    if (streamFormat === 'ndjson') {
+      onLayout?.({ type: 'layout', layout }, snapshot)
+      onChart?.({ type: 'chart', id: 'main', spec: chartSpec }, snapshot)
+    }
+
+    onSpec?.(spec)
+    const result = render
+      ? render(spec, { container: document.getElementById('preview') })
+      : { node: null }
+    onRender?.(result, spec)
+
+    return { spec, result }
+  }
+
+  return {
+    defaultStreamPlotSpec,
+    renderAISpec: vi.fn(() => ({
+      node: null,
+      stopAnimations: vi.fn()
+    })),
+    streamPlotSpec: vi.fn(defaultStreamPlotSpec),
+    exportSpecAsPNG: vi.fn(async () => {}),
+    exportSpecAsAPNG: vi.fn(async () => {})
+  }
+})
 
 vi.mock('../../src/plot/index.js', () => ({
   DEFAULT_PLOT_SPEC_PROMPT_PRESET: 'minimal',
@@ -133,10 +143,108 @@ function createPageDOM() {
   `
 }
 
-test('playground page script works with the current index.html DOM contract', async () => {
+beforeEach(() => {
   vi.resetModules()
-  document.body.innerHTML = createPageDOM()
+  document.body.innerHTML = ''
   localStorage.clear()
+  mocks.renderAISpec.mockClear()
+  mocks.exportSpecAsPNG.mockClear()
+  mocks.exportSpecAsAPNG.mockClear()
+  mocks.streamPlotSpec.mockReset()
+  mocks.streamPlotSpec.mockImplementation(mocks.defaultStreamPlotSpec)
+})
+
+test('playground page asks the model to repair missing stream chart slots once', async () => {
+  const barSpec = {
+    plot: {
+      type: 'interval',
+      data: [{ category: 'A', value: 3 }],
+      encodings: { x: 'category', y: 'value' }
+    }
+  }
+  const trendSpec = {
+    plot: {
+      type: 'line',
+      data: [{ step: 'Q1', value: 2 }],
+      encodings: { x: 'step', y: 'value' }
+    }
+  }
+  const layout = {
+    type: 'row',
+    slots: [
+      { id: 'bars', x: 0, y: 0, width: 320, height: 240 },
+      { id: 'trend', x: 320, y: 0, width: 320, height: 240 }
+    ],
+    slotFrames: [
+      { id: 'bars', x: 0, y: 0, width: 320, height: 240 },
+      { id: 'trend', x: 320, y: 0, width: 320, height: 240 }
+    ]
+  }
+
+  mocks.streamPlotSpec
+    .mockImplementationOnce(
+      async ({ render, onLayout, onChart, onSpec, onRender, onParseError }) => {
+        const spec = { view: { type: 'row', children: [barSpec] } }
+        const snapshot = {
+          layout,
+          spec,
+          charts: [{ id: 'bars', spec: barSpec }]
+        }
+
+        onLayout?.({ type: 'layout', layout }, snapshot)
+        onChart?.({ type: 'chart', id: 'bars', spec: barSpec }, snapshot)
+        onParseError?.(
+          { type: 'parse-error', code: 'invalid_json', lineNumber: 3 },
+          snapshot
+        )
+        onSpec?.(spec)
+        const result = render(spec, {
+          container: document.getElementById('preview')
+        })
+        onRender?.(result, spec)
+
+        return { spec, result }
+      }
+    )
+    .mockImplementationOnce(async ({ prompt, render, onChart }) => {
+      expect(prompt).toContain('Failed chart ids: ["trend"]')
+      expect(prompt).toContain('Do not output layout')
+
+      const event = { type: 'chart', id: 'trend', spec: trendSpec }
+      onChart?.(event, {
+        layout,
+        spec: trendSpec,
+        charts: [{ id: 'trend', spec: trendSpec }]
+      })
+
+      return { spec: trendSpec, result: render(trendSpec) }
+    })
+
+  document.body.innerHTML = createPageDOM()
+  await import('../../src/playground-page.js')
+
+  document
+    .getElementById('controls')
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(mocks.streamPlotSpec).toHaveBeenCalledTimes(2)
+  expect(document.querySelector('[data-slot="bars"]')).not.toBeNull()
+  expect(document.querySelector('[data-slot="trend"]')).not.toBeNull()
+  expect(mocks.renderAISpec).toHaveBeenCalledWith(
+    expect.objectContaining({ width: 320, height: 240 }),
+    expect.objectContaining({
+      container: document.querySelector('[data-slot="trend"]'),
+      width: 320,
+      height: 240
+    })
+  )
+  expect(document.getElementById('spec-json').textContent).toContain('"line"')
+})
+
+test('playground page script works with the current index.html DOM contract', async () => {
+  document.body.innerHTML = createPageDOM()
 
   await import('../../src/playground-page.js')
 
@@ -146,10 +254,14 @@ test('playground page script works with the current index.html DOM contract', as
   const exportButton = document.getElementById('export-menu-button')
   exportButton.disabled = false
   exportButton.click()
-  expect(document.getElementById('export-dropdown').classList.contains('open')).toBe(true)
+  expect(
+    document.getElementById('export-dropdown').classList.contains('open')
+  ).toBe(true)
 
   document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-  expect(document.getElementById('export-dropdown').classList.contains('open')).toBe(false)
+  expect(
+    document.getElementById('export-dropdown').classList.contains('open')
+  ).toBe(false)
 
   document
     .getElementById('controls')
@@ -159,9 +271,23 @@ test('playground page script works with the current index.html DOM contract', as
 
   expect(mocks.streamPlotSpec).toHaveBeenCalledTimes(1)
   expect(mocks.streamPlotSpec.mock.calls[0][0].streamFormat).toBe('ndjson')
-  expect(mocks.streamPlotSpec.mock.calls[0][0].onLayout).toEqual(expect.any(Function))
-  expect(mocks.streamPlotSpec.mock.calls[0][0].onChart).toEqual(expect.any(Function))
+  expect(mocks.streamPlotSpec.mock.calls[0][0].onLayout).toEqual(
+    expect.any(Function)
+  )
+  expect(mocks.streamPlotSpec.mock.calls[0][0].onChart).toEqual(
+    expect.any(Function)
+  )
+  expect(mocks.streamPlotSpec.mock.calls[0][0].onParseError).toEqual(
+    expect.any(Function)
+  )
   expect(document.getElementById('status-text').textContent).toContain('完成')
+  mocks.streamPlotSpec.mock.calls[0][0].onParseError(
+    { type: 'parse-error', lineNumber: 4 },
+    { charts: [{ id: 'main' }] }
+  )
+  expect(document.getElementById('status-text').textContent).toContain(
+    'Skipped 1 invalid JSON line(s) at line 4'
+  )
   expect(document.getElementById('status-dot')).not.toBeNull()
   expect(document.querySelector('[data-slot="main"]')).not.toBeNull()
   expect(mocks.renderAISpec).toHaveBeenCalledWith(

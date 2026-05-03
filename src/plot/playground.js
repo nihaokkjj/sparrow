@@ -44,6 +44,7 @@ export function parsePlotSpecResponse(text) {
 export function createPlotSpecNDJSONBuffer() {
   let raw = ''
   let pending = ''
+  let lineNumber = 0
 
   return {
     push(chunk) {
@@ -54,16 +55,27 @@ export function createPlotSpecNDJSONBuffer() {
       const lines = pending.split(/\r?\n/)
       pending = lines.pop() || ''
 
-      return lines.map(parsePlotSpecStreamEvent).filter(Boolean)
+      return lines
+        .map((line) =>
+          parsePlotSpecStreamEvent(line, { lineNumber: ++lineNumber })
+        )
+        .filter(Boolean)
     },
     reset() {
       raw = ''
       pending = ''
+      lineNumber = 0
     },
     finish() {
       const tail = pending.trim()
       pending = ''
-      return tail ? [parsePlotSpecStreamEvent(tail)].filter(Boolean) : []
+      return tail
+        ? [
+            parsePlotSpecStreamEvent(tail, {
+              lineNumber: ++lineNumber
+            })
+          ].filter(Boolean)
+        : []
     },
     getSpec() {
       return parsePlotSpecResponse(raw)
@@ -266,14 +278,39 @@ function stripFenceInfoLine(text) {
   return source
 }
 
-function parsePlotSpecStreamEvent(line) {
+function parsePlotSpecStreamEvent(line, meta = {}) {
   const source = String(line || '').trim()
   if (!source) return null
 
   try {
-    return normalizePlotSpecStreamEvent(JSON.parse(source))
-  } catch {
-    return null
+    const event = normalizePlotSpecStreamEvent(JSON.parse(source))
+    if (event) return event
+
+    return createPlotSpecStreamParseError({
+      code: 'invalid_event',
+      lineNumber: meta.lineNumber,
+      raw: source,
+      message:
+        'NDJSON line is valid JSON but not a supported plot stream event.'
+    })
+  } catch (error) {
+    return createPlotSpecStreamParseError({
+      code: 'invalid_json',
+      lineNumber: meta.lineNumber,
+      raw: source,
+      message: error?.message || 'Invalid JSON line.'
+    })
+  }
+}
+
+function createPlotSpecStreamParseError({ code, lineNumber, raw, message }) {
+  return {
+    type: 'parse-error',
+    code,
+    recoverable: true,
+    ...(lineNumber !== undefined && { lineNumber }),
+    raw,
+    message
   }
 }
 
@@ -340,7 +377,9 @@ function createPlotSpecStreamEventState() {
         latestSpec = event.spec
       } else if (event.type === 'done') {
         done = true
-        latestSpec = latestSpec || assembleStreamSpec({ layout, chartOrder, charts, title })
+        latestSpec =
+          latestSpec ||
+          assembleStreamSpec({ layout, chartOrder, charts, title })
       }
 
       return snapshot()
@@ -349,7 +388,9 @@ function createPlotSpecStreamEventState() {
       return latestSpec
     },
     hasEvents() {
-      return Boolean(layout || title || done || chartOrder.length > 0 || latestSpec)
+      return Boolean(
+        layout || title || done || chartOrder.length > 0 || latestSpec
+      )
     }
   }
 
@@ -421,7 +462,9 @@ function assembleStreamSpec({ layout, chartOrder, charts, title }) {
     ...(layout?.padding !== undefined && { padding: layout.padding }),
     view: {
       type: layout?.view?.type || 'row',
-      ...(layout?.view?.padding !== undefined && { padding: layout.view.padding }),
+      ...(layout?.view?.padding !== undefined && {
+        padding: layout.view.padding
+      }),
       children
     }
   }
@@ -433,16 +476,16 @@ export async function streamPlotSpec({
   render = renderAISpec,
   renderOptions,
   streamFormat = 'json',
-  buffer =
-    streamFormat === 'ndjson'
-      ? createPlotSpecNDJSONBuffer()
-      : createPlotSpecChunkBuffer(),
+  buffer = streamFormat === 'ndjson'
+    ? createPlotSpecNDJSONBuffer()
+    : createPlotSpecChunkBuffer(),
   signal,
   onStart,
   onChunk,
   onEvent,
   onLayout,
   onChart,
+  onParseError,
   onSpec,
   onRender,
   onComplete,
@@ -474,6 +517,9 @@ export async function streamPlotSpec({
           onEvent?.(event, snapshot, text)
           if (event.type === 'layout') onLayout?.(event, snapshot, text)
           if (event.type === 'chart') onChart?.(event, snapshot, text)
+          if (event.type === 'parse-error') {
+            onParseError?.(event, snapshot, text)
+          }
 
           if (snapshot.spec && snapshot.spec !== spec) {
             spec = snapshot.spec
@@ -500,6 +546,9 @@ export async function streamPlotSpec({
         onEvent?.(event, snapshot, text)
         if (event.type === 'layout') onLayout?.(event, snapshot, text)
         if (event.type === 'chart') onChart?.(event, snapshot, text)
+        if (event.type === 'parse-error') {
+          onParseError?.(event, snapshot, text)
+        }
         if (snapshot.spec && snapshot.spec !== spec) {
           spec = snapshot.spec
           onSpec?.(spec, text, snapshot)

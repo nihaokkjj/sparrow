@@ -79,10 +79,10 @@ test('createPlotSpecChunkBuffer() emits a spec once JSON becomes valid', () => {
   expect(buffer.finish().plot.encodings.x).toBe('x')
 })
 
-
 test('createPlotSpecChunkBuffer() parses incrementally across tiny chunks', () => {
   const buffer = createPlotSpecChunkBuffer()
-  const text = 'intro\n```json\n{"plot":{"type":"point","data":[{"label":"brace } in string","value":2}],"encodings":{"x":"label","y":"value"}}}\n```\noutro'
+  const text =
+    'intro\n```json\n{"plot":{"type":"point","data":[{"label":"brace } in string","value":2}],"encodings":{"x":"label","y":"value"}}}\n```\noutro'
   let spec = null
 
   for (const chunk of text.match(/.{1,3}/gs)) {
@@ -126,18 +126,38 @@ test('streamPlotSpec() runs prompt -> provider -> chunk buffer -> spec -> render
   expect(result.spec.plot.type).toBe('interval')
 })
 
-
-
 test('createPlotSpecNDJSONBuffer() emits complete line events', () => {
   const buffer = createPlotSpecNDJSONBuffer()
-  const first = buffer.push('{"type":"layout","layout":{"type":"row","slots":["a","b"]}}\n{"type":"chart"')
-  const second = buffer.push(',"id":"a","spec":{"plot":{"type":"point","data":[{"x":1,"y":2}],"encodings":{"x":"x","y":"y"}}}}\n')
+  const first = buffer.push(
+    '{"type":"layout","layout":{"type":"row","slots":["a","b"]}}\n{"type":"chart"'
+  )
+  const second = buffer.push(
+    ',"id":"a","spec":{"plot":{"type":"point","data":[{"x":1,"y":2}],"encodings":{"x":"x","y":"y"}}}}\n'
+  )
 
   expect(first).toHaveLength(1)
   expect(first[0].type).toBe('layout')
   expect(second).toHaveLength(1)
   expect(second[0].type).toBe('chart')
   expect(second[0].spec.plot.type).toBe('point')
+})
+
+test('createPlotSpecNDJSONBuffer() reports invalid JSON line events', () => {
+  const buffer = createPlotSpecNDJSONBuffer()
+  const events = buffer.push(
+    '{"type":"layout","layout":{"type":"row","slots":["a"]}}\n{"type":"chart"\n'
+  )
+
+  expect(events).toHaveLength(2)
+  expect(events[0].type).toBe('layout')
+  expect(events[1]).toMatchObject({
+    type: 'parse-error',
+    code: 'invalid_json',
+    recoverable: true,
+    lineNumber: 2,
+    raw: '{"type":"chart"'
+  })
+  expect(events[1].message).toEqual(expect.any(String))
 })
 
 test('streamPlotSpec() incrementally renders NDJSON chart events', async () => {
@@ -169,7 +189,8 @@ test('streamPlotSpec() incrementally renders NDJSON chart events', async () => {
   ]
   const provider = {
     async *stream() {
-      const text = events.map((event) => JSON.stringify(event)).join('\n') + '\n'
+      const text =
+        events.map((event) => JSON.stringify(event)).join('\n') + '\n'
       for (let index = 0; index < text.length; index += 17) {
         yield text.slice(index, index + 17)
       }
@@ -196,7 +217,76 @@ test('streamPlotSpec() incrementally renders NDJSON chart events', async () => {
   expect(result.spec.view.children[1].plot.type).toBe('line')
 })
 
+test('streamPlotSpec() reports NDJSON parse errors without stopping later charts', async () => {
+  const lines = [
+    JSON.stringify({
+      type: 'layout',
+      layout: { type: 'row', slots: ['bars', 'trend'] }
+    }),
+    JSON.stringify({
+      type: 'chart',
+      id: 'bars',
+      spec: {
+        plot: {
+          type: 'interval',
+          data: [{ category: 'A', value: 3 }],
+          encodings: { x: 'category', y: 'value' }
+        }
+      }
+    }),
+    '{"type":"chart","id":"broken"',
+    JSON.stringify({
+      type: 'chart',
+      id: 'trend',
+      spec: {
+        plot: {
+          type: 'line',
+          data: [{ step: 'Q1', value: 2 }],
+          encodings: { x: 'step', y: 'value' }
+        }
+      }
+    }),
+    JSON.stringify({ type: 'done' })
+  ]
+  const provider = {
+    async *stream() {
+      const text = `${lines.join('\n')}\n`
+      for (let index = 0; index < text.length; index += 19) {
+        yield text.slice(index, index + 19)
+      }
+    }
+  }
+  const render = vi.fn((spec) => ({ node: null, spec }))
+  const onEvent = vi.fn()
+  const onChart = vi.fn()
+  const onParseError = vi.fn()
 
+  const result = await streamPlotSpec({
+    prompt: 'make dashboard',
+    provider,
+    streamFormat: 'ndjson',
+    render,
+    onEvent,
+    onChart,
+    onParseError
+  })
+
+  expect(onEvent).toHaveBeenCalledTimes(5)
+  expect(onChart).toHaveBeenCalledTimes(2)
+  expect(onParseError).toHaveBeenCalledTimes(1)
+  expect(onParseError.mock.calls[0][0]).toMatchObject({
+    type: 'parse-error',
+    code: 'invalid_json',
+    recoverable: true,
+    lineNumber: 3,
+    raw: '{"type":"chart","id":"broken"'
+  })
+  expect(onParseError.mock.calls[0][1].charts).toHaveLength(1)
+  expect(render).toHaveBeenCalledTimes(2)
+  expect(result.spec.view.children).toHaveLength(2)
+  expect(result.spec.view.children[0].plot.type).toBe('interval')
+  expect(result.spec.view.children[1].plot.type).toBe('line')
+})
 
 test('streamPlotSpec() falls back to full JSON in NDJSON mode', async () => {
   const provider = {
@@ -417,4 +507,3 @@ test('createOpenAICompatibleProvider() forwards custom proxy headers to fetch', 
     signal: undefined
   })
 })
-

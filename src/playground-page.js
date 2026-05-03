@@ -149,7 +149,6 @@ const autoLayoutMarkTypes = new Set([
   'text'
 ])
 
-
 const ndjsonStreamPromptSuffix = [
   'Output NDJSON only: one valid JSON object per line, no markdown fences and no prose.',
   'For multi-panel requests, first emit {"type":"layout","width": number, "height": number, "layout":{"type":"absolute","slots":[{"id":"slot-id","x":0,"y":0,"width":320,"height":240}]}}.',
@@ -551,7 +550,8 @@ function getStreamSlotFrames(layout, width, height) {
       !Number.isFinite(slot.width) ||
       !Number.isFinite(slot.height)
   )
-  if (!needsGrid) return frames.map((slot) => normalizeSlotFrame(slot, width, height))
+  if (!needsGrid)
+    return frames.map((slot) => normalizeSlotFrame(slot, width, height))
 
   const columns = Math.ceil(Math.sqrt(frames.length))
   const rows = Math.ceil(frames.length / columns)
@@ -646,6 +646,193 @@ function rememberStreamSlotChart(event) {
   })
 }
 
+function getStreamEventId(event) {
+  const id = event?.id || event?.slot || event?.key || event?.chartId
+  return id === undefined || id === null ? '' : String(id)
+}
+
+function getExpectedStreamSlotIds(state = lastStreamSlotState) {
+  if (!state?.layout) return []
+  const dimensions = state.dimensions ||
+    lastRenderedDimensions || {
+      width: parseInt(canvasWidthInput.value) || 640,
+      height: parseInt(canvasHeightInput.value) || 480
+    }
+
+  return getStreamSlotFrames(
+    state.layout,
+    dimensions.width,
+    dimensions.height
+  ).map((slot) => slot.id)
+}
+
+function getFailedStreamChartIds(errors = []) {
+  if (!lastStreamSlotState) return []
+
+  const failedIds = new Set()
+  const expectedIds = getExpectedStreamSlotIds(lastStreamSlotState)
+  expectedIds.forEach((id) => {
+    if (!lastStreamSlotState.charts.has(id)) failedIds.add(id)
+  })
+
+  errors
+    .map(getStreamEventId)
+    .filter(Boolean)
+    .forEach((id) => {
+      if (!lastStreamSlotState.charts.has(id)) failedIds.add(id)
+    })
+
+  return [...failedIds]
+}
+
+function createStreamSlotSpecFromState(state = lastStreamSlotState) {
+  if (!state?.layout) return null
+  const ids = getExpectedStreamSlotIds(state)
+  const children = ids
+    .map((id) => state.charts.get(id)?.spec)
+    .filter((spec) => spec && typeof spec === 'object')
+
+  if (children.length === 0) return null
+  if (children.length === 1 && ids.length <= 1) return children[0]
+
+  const layout = state.layout || {}
+  const view = layout.view || layout
+
+  return {
+    ...(layout.width && { width: layout.width }),
+    ...(layout.height && { height: layout.height }),
+    ...(layout.padding !== undefined && { padding: layout.padding }),
+    view: {
+      type: view.type || layout.type || 'row',
+      ...(view.padding !== undefined && { padding: view.padding }),
+      children
+    }
+  }
+}
+
+function createStreamChartRepairPrompt({
+  originalPrompt,
+  canvasWidth,
+  canvasHeight,
+  failedIds,
+  errors = []
+}) {
+  const layout = lastStreamSlotState?.layout || null
+  const validIds = lastStreamSlotState
+    ? [...lastStreamSlotState.charts.keys()]
+    : []
+  const compactErrors = errors.map((error) => ({
+    id: getStreamEventId(error) || undefined,
+    code: error?.code || 'unknown',
+    lineNumber: error?.lineNumber,
+    message: error?.message,
+    raw: error?.raw ? String(error.raw).slice(0, 500) : undefined
+  }))
+
+  return [
+    'Repair failed Sparrow multi-chart NDJSON output.',
+    `Original user request: ${originalPrompt}`,
+    `Canvas size: ${canvasWidth}x${canvasHeight}.`,
+    `Existing layout: ${JSON.stringify(layout)}`,
+    `Already valid chart ids: ${JSON.stringify(validIds)}`,
+    `Failed chart ids: ${JSON.stringify(failedIds)}`,
+    `Errors: ${JSON.stringify(compactErrors)}`,
+    'Output NDJSON only: one valid JSON object per line, no markdown fences and no prose.',
+    'Do not output layout, start, or explanatory events.',
+    'Emit exactly one {"type":"chart","id":"slot-id","spec": SparrowPlotSpecLeafOrViewChild } line per failed chart id.',
+    'Use the exact failed ids and render each chart for its existing slot.'
+  ].join('\n')
+}
+
+async function repairFailedStreamCharts({
+  provider,
+  originalPrompt,
+  canvasWidth,
+  canvasHeight,
+  renderPreferences,
+  errors,
+  signal
+}) {
+  const failedIds = getFailedStreamChartIds(errors)
+  if (failedIds.length === 0) return null
+
+  const failedIdSet = new Set(failedIds)
+  const repairedIds = new Set()
+  const repairErrors = []
+
+  setStatus(`Repairing ${failedIds.length} failed chart slot(s)...`, 'live')
+
+  try {
+    await streamPlotSpec({
+      prompt: createStreamChartRepairPrompt({
+        originalPrompt,
+        canvasWidth,
+        canvasHeight,
+        failedIds,
+        errors
+      }),
+      provider,
+      streamFormat: 'ndjson',
+      signal,
+      render(spec) {
+        return { node: previewNode, spec }
+      },
+      renderOptions: {
+        container: previewNode,
+        ...renderPreferences,
+        width: canvasWidth,
+        height: canvasHeight
+      },
+      onChunk(chunk) {
+        streamLogNode.textContent += chunk
+      },
+      onChart(event) {
+        const fallbackId = failedIds.length === 1 ? failedIds[0] : ''
+        const id = getStreamEventId(event) || fallbackId
+        if (!id || !failedIdSet.has(id)) return
+
+        const repairEvent = { ...event, id }
+        rememberStreamSlotChart(repairEvent)
+        const partialResult = streamSlotRenderer?.renderChart({
+          ...repairEvent,
+          spec: getEffectiveSpec(repairEvent.spec)
+        })
+        if (partialResult) {
+          repairedIds.add(id)
+          lastRenderResult = {
+            node: previewNode,
+            spec: createStreamSlotSpecFromState(),
+            stopAnimations: () => streamSlotRenderer?.stop?.()
+          }
+        }
+      },
+      onParseError(error) {
+        repairErrors.push(error)
+      }
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    setStatus(error?.message || 'Chart repair failed.', 'error')
+  }
+
+  const spec = createStreamSlotSpecFromState()
+  if (spec) {
+    const effectiveSpec = getEffectiveSpec(spec)
+    rememberRenderedSpec(effectiveSpec, {
+      width: canvasWidth,
+      height: canvasHeight
+    })
+    specJsonNode.textContent = JSON.stringify(effectiveSpec, null, 2)
+  }
+
+  return {
+    failedIds,
+    repairedIds: [...repairedIds],
+    repairErrors,
+    spec
+  }
+}
+
 function clearRenderedSpec() {
   lastRenderedSpec = null
   lastRenderResult = null
@@ -670,11 +857,14 @@ function renderStoredSpec(options = {}) {
     if (lastStreamSlotState) {
       renderStoredStreamSlots(renderPreferences)
     } else {
-      lastRenderResult = renderAISpec(getEffectiveSpec(cloneSpec(lastRenderedSpec)), {
-        container: previewNode,
-        ...renderPreferences,
-        ...(lastRenderedDimensions || {})
-      })
+      lastRenderResult = renderAISpec(
+        getEffectiveSpec(cloneSpec(lastRenderedSpec)),
+        {
+          container: previewNode,
+          ...renderPreferences,
+          ...(lastRenderedDimensions || {})
+        }
+      )
     }
 
     if (options.successMessage) {
@@ -699,8 +889,8 @@ function renderStoredSpec(options = {}) {
 }
 
 function renderStoredStreamSlots(renderPreferences) {
-  const dimensions =
-    lastStreamSlotState.dimensions || lastRenderedDimensions || {
+  const dimensions = lastStreamSlotState.dimensions ||
+    lastRenderedDimensions || {
       width: parseInt(canvasWidthInput.value) || 640,
       height: parseInt(canvasHeightInput.value) || 480
     }
@@ -728,8 +918,8 @@ function renderStoredStreamSlots(renderPreferences) {
 }
 
 function createStreamSlotExportSpec() {
-  const dimensions =
-    lastStreamSlotState?.dimensions || lastRenderedDimensions || {
+  const dimensions = lastStreamSlotState?.dimensions ||
+    lastRenderedDimensions || {
       width: parseInt(canvasWidthInput.value) || 640,
       height: parseInt(canvasHeightInput.value) || 480
     }
@@ -742,8 +932,8 @@ function createStreamSlotExportSpec() {
 
 function createStreamSlotExportRender(renderPreferences = {}) {
   return (_spec, renderOptions = {}) => {
-    const dimensions =
-      lastStreamSlotState?.dimensions || lastRenderedDimensions || {
+    const dimensions = lastStreamSlotState?.dimensions ||
+      lastRenderedDimensions || {
         width: renderOptions.width || parseInt(canvasWidthInput.value) || 640,
         height: renderOptions.height || parseInt(canvasHeightInput.value) || 480
       }
@@ -1144,6 +1334,8 @@ if (hasPlaygroundPage) {
       const canvasWidth = parseInt(canvasWidthInput.value) || 640
       const canvasHeight = parseInt(canvasHeightInput.value) || 480
       const renderPreferences = getRenderPreferences()
+      let parseErrorCount = 0
+      const parseErrors = []
 
       previewNode.style.width = `${canvasWidth}px`
       previewNode.style.height = `${canvasHeight}px`
@@ -1218,6 +1410,18 @@ if (hasPlaygroundPage) {
             'live'
           )
         },
+        onParseError(error, snapshot) {
+          parseErrorCount += 1
+          parseErrors.push(error)
+          const lineSuffix = error?.lineNumber
+            ? ` at line ${error.lineNumber}`
+            : ''
+          const chartCount = snapshot?.charts?.length || 0
+          setStatus(
+            `Skipped ${parseErrorCount} invalid JSON line(s)${lineSuffix}; ${chartCount} chart chunk(s) still parsed.`,
+            'live'
+          )
+        },
         onSpec(spec) {
           const effectiveSpec = getEffectiveSpec(spec)
           rememberRenderedSpec(effectiveSpec, {
@@ -1251,7 +1455,17 @@ if (hasPlaygroundPage) {
         }
       })
 
-      const effectiveSpec = getEffectiveSpec(result.spec)
+      const repairOutcome = await repairFailedStreamCharts({
+        provider,
+        originalPrompt: prompt,
+        canvasWidth,
+        canvasHeight,
+        renderPreferences,
+        errors: parseErrors,
+        signal: controller.signal
+      })
+
+      const effectiveSpec = getEffectiveSpec(repairOutcome?.spec || result.spec)
       const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
       const animationSuffix = animateRenderInput.checked
         ? '，并播放了入场动画'
