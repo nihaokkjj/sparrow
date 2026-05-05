@@ -742,6 +742,53 @@
       color: var(--muted);
     }
 
+    .stream-slot-preview__placeholder {
+      will-change: opacity, transform;
+    }
+
+    .stream-slot-preview__retry-spinner {
+      flex-shrink: 0;
+    }
+
+    .stream-slot-preview__label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .stream-slot-preview__hint {
+      color: var(--muted);
+    }
+
+    .stream-slot-preview__slot.is-retrying .stream-slot-preview__label {
+      color: var(--accent);
+    }
+
+    .stream-slot-preview__slot.is-retrying .stream-slot-preview__hint {
+      color: var(--accent);
+    }
+
+    .stream-slot-preview__slot.is-retry-failed .stream-slot-preview__label,
+    .stream-slot-preview__slot.is-retry-failed .stream-slot-preview__hint {
+      color: var(--danger);
+    }
+
+    @keyframes stream-slot-retry-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes stream-slot-retry-pulse {
+      0%, 100% { opacity: 0.72; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.01); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stream-slot-preview__retry-spinner,
+      .stream-slot-preview__slot.is-retrying .stream-slot-preview__placeholder {
+        animation: none !important;
+      }
+    }
+
     /* Logs */
     .logs {
       display: grid;

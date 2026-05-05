@@ -243,6 +243,187 @@ test('playground page asks the model to repair missing stream chart slots once',
   expect(document.getElementById('spec-json').textContent).toContain('"line"')
 })
 
+test('playground page keeps empty stream slots visible as placeholders', async () => {
+  const barSpec = {
+    plot: {
+      type: 'interval',
+      data: [{ category: 'A', value: 3 }],
+      encodings: { x: 'category', y: 'value' }
+    }
+  }
+  const trendSpec = {
+    plot: {
+      type: 'line',
+      data: [{ step: 'Q1', value: 2 }],
+      encodings: { x: 'step', y: 'value' }
+    }
+  }
+  const layout = {
+    type: 'row',
+    slots: [
+      { id: 'bars', x: 0, y: 0, width: 160, height: 240 },
+      { id: 'trend', x: 160, y: 0, width: 160, height: 240 },
+      { id: 'forecast', x: 320, y: 0, width: 160, height: 240 },
+      { id: 'summary', x: 480, y: 0, width: 160, height: 240 }
+    ],
+    slotFrames: [
+      { id: 'bars', x: 0, y: 0, width: 160, height: 240 },
+      { id: 'trend', x: 160, y: 0, width: 160, height: 240 },
+      { id: 'forecast', x: 320, y: 0, width: 160, height: 240 },
+      { id: 'summary', x: 480, y: 0, width: 160, height: 240 }
+    ]
+  }
+
+  mocks.streamPlotSpec
+    .mockImplementationOnce(
+      async ({ render, onLayout, onChart, onSpec, onRender }) => {
+        const spec = { view: { type: 'row', children: [barSpec, trendSpec] } }
+        const snapshot = {
+          layout,
+          spec,
+          charts: [
+            { id: 'bars', spec: barSpec },
+            { id: 'trend', spec: trendSpec }
+          ]
+        }
+
+        onLayout?.({ type: 'layout', layout }, snapshot)
+        onChart?.({ type: 'chart', id: 'bars', spec: barSpec }, snapshot)
+        onChart?.({ type: 'chart', id: 'trend', spec: trendSpec }, snapshot)
+        onSpec?.(spec)
+        const result = render(spec, {
+          container: document.getElementById('preview')
+        })
+        onRender?.(result, spec)
+
+        return { spec, result }
+      }
+    )
+    .mockImplementationOnce(async ({ prompt }) => {
+      expect(prompt).toContain('Failed chart ids: ["forecast","summary"]')
+      return { spec: null, result: { node: null } }
+    })
+
+  document.body.innerHTML = createPageDOM()
+  await import('../../src/playground-page.js')
+
+  document
+    .getElementById('controls')
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(document.querySelectorAll('.stream-slot-preview__slot')).toHaveLength(
+    4
+  )
+  expect(
+    document.querySelector(
+      '[data-slot="forecast"] .stream-slot-preview__placeholder'
+    )
+  ).not.toBeNull()
+  expect(
+    document.querySelector(
+      '[data-slot="summary"] .stream-slot-preview__placeholder'
+    )
+  ).not.toBeNull()
+})
+
+test('playground page animates failed stream slots while repair is pending', async () => {
+  const barSpec = {
+    plot: {
+      type: 'interval',
+      data: [{ category: 'A', value: 3 }],
+      encodings: { x: 'category', y: 'value' }
+    }
+  }
+  const trendSpec = {
+    plot: {
+      type: 'line',
+      data: [{ step: 'Q1', value: 2 }],
+      encodings: { x: 'step', y: 'value' }
+    }
+  }
+  const layout = {
+    type: 'row',
+    slots: [
+      { id: 'bars', x: 0, y: 0, width: 160, height: 240 },
+      { id: 'trend', x: 160, y: 0, width: 160, height: 240 },
+      { id: 'forecast', x: 320, y: 0, width: 160, height: 240 },
+      { id: 'summary', x: 480, y: 0, width: 160, height: 240 }
+    ],
+    slotFrames: [
+      { id: 'bars', x: 0, y: 0, width: 160, height: 240 },
+      { id: 'trend', x: 160, y: 0, width: 160, height: 240 },
+      { id: 'forecast', x: 320, y: 0, width: 160, height: 240 },
+      { id: 'summary', x: 480, y: 0, width: 160, height: 240 }
+    ]
+  }
+  let resolveRepair
+
+  mocks.streamPlotSpec
+    .mockImplementationOnce(
+      async ({ render, onLayout, onChart, onSpec, onRender }) => {
+        const spec = { view: { type: 'row', children: [barSpec, trendSpec] } }
+        const snapshot = {
+          layout,
+          spec,
+          charts: [
+            { id: 'bars', spec: barSpec },
+            { id: 'trend', spec: trendSpec }
+          ]
+        }
+
+        onLayout?.({ type: 'layout', layout }, snapshot)
+        onChart?.({ type: 'chart', id: 'bars', spec: barSpec }, snapshot)
+        onChart?.({ type: 'chart', id: 'trend', spec: trendSpec }, snapshot)
+        onSpec?.(spec)
+        const result = render(spec, {
+          container: document.getElementById('preview')
+        })
+        onRender?.(result, spec)
+
+        return { spec, result }
+      }
+    )
+    .mockImplementationOnce(
+      async () =>
+        new Promise((resolve) => {
+          resolveRepair = resolve
+        })
+    )
+
+  document.body.innerHTML = createPageDOM()
+  await import('../../src/playground-page.js')
+
+  document
+    .getElementById('controls')
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(mocks.streamPlotSpec).toHaveBeenCalledTimes(2)
+  const forecastSlot = document.querySelector('[data-slot="forecast"]')
+  const placeholder = forecastSlot.querySelector(
+    '.stream-slot-preview__placeholder'
+  )
+  expect(forecastSlot.classList.contains('is-retrying')).toBe(true)
+  expect(placeholder.dataset.state).toBe('retrying')
+  expect(
+    forecastSlot.querySelector('.stream-slot-preview__retry-spinner').hidden
+  ).toBe(false)
+  expect(
+    forecastSlot.querySelector('.stream-slot-preview__hint').textContent
+  ).toBe('Retrying')
+
+  resolveRepair({ spec: null, result: { node: null } })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(forecastSlot.classList.contains('is-retry-failed')).toBe(true)
+  expect(
+    forecastSlot.querySelector('.stream-slot-preview__hint').textContent
+  ).toBe('Retry failed')
+})
+
 test('playground page script works with the current index.html DOM contract', async () => {
   document.body.innerHTML = createPageDOM()
 

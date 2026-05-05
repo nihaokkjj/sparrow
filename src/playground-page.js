@@ -483,6 +483,12 @@ function createStreamSlotRenderer({ width, height, renderPreferences }) {
       node.style.width = `${slot.width}px`
       node.style.height = `${slot.height}px`
       node.style.overflow = 'hidden'
+      node.style.border = '1px solid var(--border)'
+      node.style.background = 'var(--surface)'
+      node.style.borderRadius = '6px'
+      node.style.transition =
+        'border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease'
+      node.appendChild(createStreamSlotPlaceholder(slot))
       root.appendChild(node)
       slotMap.set(slot.id, { slot, node, result: null })
     })
@@ -503,6 +509,7 @@ function createStreamSlotRenderer({ width, height, renderPreferences }) {
     }
 
     entry.result?.stopAnimations?.()
+    clearStreamSlotPlaceholderState(entry)
     const scopedSpec = {
       ...event.spec,
       width: entry.slot.width,
@@ -523,11 +530,132 @@ function createStreamSlotRenderer({ width, height, renderPreferences }) {
     return slotMap.get(id)
   }
 
+  function markRetrying(ids) {
+    ids.forEach((id) =>
+      setStreamSlotPlaceholderState(slotMap.get(id), 'retrying')
+    )
+  }
+
+  function markRetryFailed(ids) {
+    ids.forEach((id) =>
+      setStreamSlotPlaceholderState(slotMap.get(id), 'failed')
+    )
+  }
+
   function stop() {
     slotMap.forEach((entry) => entry.result?.stopAnimations?.())
   }
 
-  return { applyLayout, renderChart, stop, getLayout: () => layout }
+  return {
+    applyLayout,
+    renderChart,
+    markRetrying,
+    markRetryFailed,
+    stop,
+    getLayout: () => layout
+  }
+}
+
+function createStreamSlotPlaceholder(slot) {
+  const placeholder = document.createElement('div')
+  placeholder.className = 'stream-slot-preview__placeholder'
+  placeholder.dataset.state = 'waiting'
+  placeholder.style.position = 'absolute'
+  placeholder.style.inset = '0'
+  placeholder.style.display = 'flex'
+  placeholder.style.alignItems = 'center'
+  placeholder.style.justifyContent = 'center'
+  placeholder.style.flexDirection = 'column'
+  placeholder.style.gap = '6px'
+  placeholder.style.padding = '12px'
+  placeholder.style.boxSizing = 'border-box'
+  placeholder.style.color = 'var(--muted)'
+  placeholder.style.fontSize = '12px'
+  placeholder.style.lineHeight = '1.4'
+  placeholder.style.textAlign = 'center'
+  placeholder.style.pointerEvents = 'none'
+
+  const spinner = document.createElement('div')
+  spinner.className = 'stream-slot-preview__retry-spinner'
+  spinner.hidden = true
+  spinner.style.width = '18px'
+  spinner.style.height = '18px'
+  spinner.style.border = '2px solid rgba(79, 70, 229, 0.18)'
+  spinner.style.borderTopColor = 'var(--accent)'
+  spinner.style.borderRadius = '50%'
+  spinner.style.animation = 'stream-slot-retry-spin 0.75s linear infinite'
+
+  const label = document.createElement('div')
+  label.className = 'stream-slot-preview__label'
+  label.textContent = String(slot.id || 'slot')
+
+  const hint = document.createElement('div')
+  hint.className = 'stream-slot-preview__hint'
+  hint.textContent = 'Waiting'
+  hint.style.letterSpacing = '0'
+
+  placeholder.append(spinner, label, hint)
+  return placeholder
+}
+
+function setStreamSlotPlaceholderState(entry, state) {
+  if (!entry?.node || entry.result) return
+  const placeholder = entry.node.querySelector('.stream-slot-preview__placeholder')
+  if (!placeholder) return
+
+  const spinner = placeholder.querySelector('.stream-slot-preview__retry-spinner')
+  const hint = placeholder.querySelector('.stream-slot-preview__hint')
+
+  entry.node.classList.remove('is-retrying', 'is-retry-failed')
+  placeholder.dataset.state = state
+  placeholder.style.animation = ''
+  entry.node.style.border = '1px solid var(--border)'
+  entry.node.style.background = 'var(--surface)'
+  entry.node.style.boxShadow = 'none'
+
+  if (state === 'retrying') {
+    entry.node.classList.add('is-retrying')
+    entry.node.style.border = '1px solid rgba(79, 70, 229, 0.42)'
+    entry.node.style.background =
+      'linear-gradient(180deg, rgba(79, 70, 229, 0.06), rgba(255, 255, 255, 0.94))'
+    entry.node.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.08)'
+    placeholder.style.animation = 'stream-slot-retry-pulse 1.2s ease-in-out infinite'
+    if (spinner) {
+      spinner.hidden = false
+      spinner.style.animation = 'stream-slot-retry-spin 0.75s linear infinite'
+      spinner.style.border = '2px solid rgba(79, 70, 229, 0.18)'
+      spinner.style.borderTopColor = 'var(--accent)'
+    }
+    if (hint) hint.textContent = 'Retrying'
+    return
+  }
+
+  if (state === 'failed') {
+    entry.node.classList.add('is-retry-failed')
+    entry.node.style.border = '1px solid rgba(239, 68, 68, 0.42)'
+    entry.node.style.background =
+      'linear-gradient(180deg, rgba(239, 68, 68, 0.06), rgba(255, 255, 255, 0.94))'
+    entry.node.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.08)'
+    if (spinner) {
+      spinner.hidden = false
+      spinner.style.animation = 'none'
+      spinner.style.border = '2px solid rgba(239, 68, 68, 0.32)'
+      spinner.style.borderTopColor = 'var(--danger)'
+    }
+    if (hint) hint.textContent = 'Retry failed'
+    return
+  }
+
+  if (spinner) spinner.hidden = true
+  if (hint) hint.textContent = 'Waiting'
+}
+
+function clearStreamSlotPlaceholderState(entry) {
+  if (!entry?.node) return
+  entry.node.classList.remove('is-retrying', 'is-retry-failed')
+  entry.node.style.border = '1px solid var(--border)'
+  entry.node.style.background = 'var(--surface)'
+  entry.node.style.boxShadow = 'none'
 }
 
 function getStreamSlotFrames(layout, width, height) {
@@ -760,6 +888,7 @@ async function repairFailedStreamCharts({
   const repairedIds = new Set()
   const repairErrors = []
 
+  streamSlotRenderer?.markRetrying?.(failedIds)
   setStatus(`Repairing ${failedIds.length} failed chart slot(s)...`, 'live')
 
   try {
@@ -814,6 +943,9 @@ async function repairFailedStreamCharts({
     if (error?.name === 'AbortError') throw error
     setStatus(error?.message || 'Chart repair failed.', 'error')
   }
+
+  const remainingIds = failedIds.filter((id) => !repairedIds.has(id))
+  streamSlotRenderer?.markRetryFailed?.(remainingIds)
 
   const spec = createStreamSlotSpecFromState()
   if (spec) {
