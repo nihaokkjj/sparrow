@@ -24,6 +24,15 @@ export {
   createMockPlotProvider
 } from './playground.js'
 export {
+  DEFAULT_SPARROW_RAG_TOP_K,
+  SPARROW_RAG_CONTEXT_MESSAGE_TITLE,
+  SPARROW_SYNTAX_KNOWLEDGE,
+  createRAGPlotProvider,
+  createRAGPlotSpecMessages,
+  formatSparrowSyntaxContext,
+  retrieveSparrowSyntaxKnowledge
+} from './rag.js'
+export {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_PLAYGROUND_OPENAI_MODEL,

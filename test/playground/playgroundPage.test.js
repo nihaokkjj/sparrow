@@ -70,6 +70,7 @@ vi.mock('../../src/plot/index.js', () => ({
     config,
     stream: async function* () {}
   })),
+  createRAGPlotProvider: vi.fn((provider) => provider),
   getDefaultPlaygroundProviderSettings: () => ({
     connectionMode: 'proxy',
     targetBaseURL: '',
@@ -121,6 +122,7 @@ function createPageDOM() {
       <input id="apiKey" value="" />
       <input id="animateRender" type="checkbox" />
       <input id="autoLayout" type="checkbox" checked />
+      <input id="ragKnowledge" type="checkbox" checked />
       <button id="run" type="submit">run</button>
       <button id="stop" type="button" disabled>stop</button>
     </form>

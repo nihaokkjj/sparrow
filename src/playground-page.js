@@ -4,6 +4,7 @@ import {
   applyPlaygroundAnimationPreference,
   buildProviderRequestConfig,
   createOpenAICompatibleProvider,
+  createRAGPlotProvider,
   getDefaultPlaygroundProviderSettings,
   getPlaygroundProviderProfile,
   getPlotSpecPromptPreset,
@@ -28,6 +29,7 @@ const modelInput = document.getElementById('model')
 const apiKeyInput = document.getElementById('apiKey')
 const animateRenderInput = document.getElementById('animateRender')
 const autoLayoutInput = document.getElementById('autoLayout')
+const ragKnowledgeInput = document.getElementById('ragKnowledge')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
 const autoLayoutActionButton = document.getElementById('auto-layout-action')
@@ -330,6 +332,7 @@ function persistProviderSettings() {
       version: providerSettingsVersion,
       provider: activeProvider,
       promptPreset: promptPresetSelect.value,
+      ragKnowledge: ragKnowledgeInput?.checked !== false,
       animateRender: animateRenderInput.checked,
       autoLayout: autoLayoutInput.checked,
       providers: {
@@ -367,6 +370,7 @@ function getProviderSettingsMap() {
       typeof stored.promptPreset === 'string'
         ? getPlotSpecPromptPreset(stored.promptPreset).id
         : DEFAULT_PLOT_SPEC_PROMPT_PRESET,
+    ragKnowledge: stored.ragKnowledge !== false,
     animateRender: stored.animateRender === true,
     autoLayout: stored.autoLayout !== false,
     providers: {
@@ -600,10 +604,14 @@ function createStreamSlotPlaceholder(slot) {
 
 function setStreamSlotPlaceholderState(entry, state) {
   if (!entry?.node || entry.result) return
-  const placeholder = entry.node.querySelector('.stream-slot-preview__placeholder')
+  const placeholder = entry.node.querySelector(
+    '.stream-slot-preview__placeholder'
+  )
   if (!placeholder) return
 
-  const spinner = placeholder.querySelector('.stream-slot-preview__retry-spinner')
+  const spinner = placeholder.querySelector(
+    '.stream-slot-preview__retry-spinner'
+  )
   const hint = placeholder.querySelector('.stream-slot-preview__hint')
 
   entry.node.classList.remove('is-retrying', 'is-retry-failed')
@@ -619,7 +627,8 @@ function setStreamSlotPlaceholderState(entry, state) {
     entry.node.style.background =
       'linear-gradient(180deg, rgba(79, 70, 229, 0.06), rgba(255, 255, 255, 0.94))'
     entry.node.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.08)'
-    placeholder.style.animation = 'stream-slot-retry-pulse 1.2s ease-in-out infinite'
+    placeholder.style.animation =
+      'stream-slot-retry-pulse 1.2s ease-in-out infinite'
     if (spinner) {
       spinner.hidden = false
       spinner.style.animation = 'stream-slot-retry-spin 0.75s linear infinite'
@@ -1291,6 +1300,14 @@ function createConfiguredProvider(systemPrompt) {
   })
 }
 
+function createConfiguredRAGProvider(provider, systemPrompt) {
+  if (ragKnowledgeInput?.checked === false) return provider
+
+  return createRAGPlotProvider(provider, {
+    systemPrompt
+  })
+}
+
 function syncConnectionModeUI() {
   const providerProfile = getPlaygroundProviderProfile(activeProvider, env)
   const isDirect = connectionModeSelect.value === 'direct'
@@ -1336,6 +1353,9 @@ function initializeProviderSettings() {
   connectionModeSelect.value = stored.providers[activeProvider].connectionMode
   targetBaseURLInput.value = stored.providers[activeProvider].targetBaseURL
   modelInput.value = stored.providers[activeProvider].model
+  if (ragKnowledgeInput) {
+    ragKnowledgeInput.checked = stored.ragKnowledge
+  }
   animateRenderInput.checked = stored.animateRender
   autoLayoutInput.checked = stored.autoLayout
   syncPromptPresetUI()
@@ -1372,6 +1392,7 @@ if (hasPlaygroundPage) {
 
   targetBaseURLInput.addEventListener('input', persistProviderSettings)
   modelInput.addEventListener('input', persistProviderSettings)
+  ragKnowledgeInput?.addEventListener('change', persistProviderSettings)
   animateRenderInput.addEventListener('change', persistProviderSettings)
   autoLayoutInput.addEventListener('change', () => {
     persistProviderSettings()
@@ -1443,8 +1464,12 @@ if (hasPlaygroundPage) {
     let provider
 
     try {
-      provider = createConfiguredProvider(
-        withNDJSONStreamInstructions(promptPreset.systemPrompt)
+      const systemPrompt = withNDJSONStreamInstructions(
+        promptPreset.systemPrompt
+      )
+      provider = createConfiguredRAGProvider(
+        createConfiguredProvider(systemPrompt),
+        systemPrompt
       )
     } catch (error) {
       setStatus(error?.message || 'Provider 配置失败。', 'error')
