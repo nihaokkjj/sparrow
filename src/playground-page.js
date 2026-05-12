@@ -863,6 +863,13 @@ function createStreamChartRepairPrompt({
     code: error?.code || 'unknown',
     lineNumber: error?.lineNumber,
     message: error?.message,
+    validation: Array.isArray(error?.validation?.errors)
+      ? error.validation.errors.map(({ code, path, message }) => ({
+          code,
+          path,
+          message
+        }))
+      : undefined,
     raw: error?.raw ? String(error.raw).slice(0, 500) : undefined
   }))
 
@@ -911,6 +918,7 @@ async function repairFailedStreamCharts({
       }),
       provider,
       streamFormat: 'ndjson',
+      validate: true,
       signal,
       render(spec) {
         return { node: previewNode, spec }
@@ -945,6 +953,9 @@ async function repairFailedStreamCharts({
         }
       },
       onParseError(error) {
+        repairErrors.push(error)
+      },
+      onValidationError(error) {
         repairErrors.push(error)
       }
     })
@@ -1505,112 +1516,142 @@ if (hasPlaygroundPage) {
 
       const promptWithSize = `Canvas size: ${canvasWidth}x${canvasHeight}. Put id, x, y, width, and height in layout.slots for each chart. ${prompt}`
 
-      const result = await streamPlotSpec({
-        prompt: promptWithSize,
-        provider,
-        streamFormat: 'ndjson',
-        signal: controller.signal,
-        render(spec, renderOptions) {
-          if (streamSlotRenderer?.getLayout?.()) {
-            return { node: previewNode, spec }
-          }
+      let result
+      try {
+        result = await streamPlotSpec({
+          prompt: promptWithSize,
+          provider,
+          streamFormat: 'ndjson',
+          validate: true,
+          signal: controller.signal,
+          render(spec, renderOptions) {
+            if (streamSlotRenderer?.getLayout?.()) {
+              return { node: previewNode, spec }
+            }
 
-          const effectiveSpec = getEffectiveSpec(spec)
-          return renderAISpec(
-            {
-              ...effectiveSpec,
-              width: canvasWidth,
-              height: canvasHeight
-            },
-            {
-              ...renderOptions,
-              ...renderPreferences,
-              width: canvasWidth,
-              height: canvasHeight
-            }
-          )
-        },
-        renderOptions: {
-          container: previewNode,
-          ...renderPreferences,
-          width: canvasWidth,
-          height: canvasHeight
-        },
-        onChunk(chunk, text) {
-          streamLogNode.textContent = text
-        },
-        onLayout(event, snapshot) {
-          const layout = snapshot.layout || event.layout || event
-          streamSlotRenderer?.applyLayout(layout)
-          rememberStreamSlotLayout(
-            layout,
-            { width: canvasWidth, height: canvasHeight },
-            renderPreferences
-          )
-          setStatus('Layout received; waiting for chart chunks...', 'live')
-        },
-        onChart(event, snapshot) {
-          rememberStreamSlotChart(event)
-          const partialResult = streamSlotRenderer?.renderChart({
-            ...event,
-            spec: getEffectiveSpec(event.spec)
-          })
-          if (partialResult) {
-            lastRenderResult = {
-              node: previewNode,
-              spec: snapshot.spec,
-              stopAnimations: () => streamSlotRenderer?.stop?.()
-            }
-          }
-          setStatus(
-            `Received ${snapshot.charts.length} chart chunk(s); rendering incrementally...`,
-            'live'
-          )
-        },
-        onParseError(error, snapshot) {
-          parseErrorCount += 1
-          parseErrors.push(error)
-          const lineSuffix = error?.lineNumber
-            ? ` at line ${error.lineNumber}`
-            : ''
-          const chartCount = snapshot?.charts?.length || 0
-          setStatus(
-            `Skipped ${parseErrorCount} invalid JSON line(s)${lineSuffix}; ${chartCount} chart chunk(s) still parsed.`,
-            'live'
-          )
-        },
-        onSpec(spec) {
-          const effectiveSpec = getEffectiveSpec(spec)
-          rememberRenderedSpec(effectiveSpec, {
+            const effectiveSpec = getEffectiveSpec(spec)
+            return renderAISpec(
+              {
+                ...effectiveSpec,
+                width: canvasWidth,
+                height: canvasHeight
+              },
+              {
+                ...renderOptions,
+                ...renderPreferences,
+                width: canvasWidth,
+                height: canvasHeight
+              }
+            )
+          },
+          renderOptions: {
+            container: previewNode,
+            ...renderPreferences,
             width: canvasWidth,
             height: canvasHeight
-          })
-          specJsonNode.textContent = JSON.stringify(effectiveSpec, null, 2)
+          },
+          onChunk(chunk, text) {
+            streamLogNode.textContent = text
+          },
+          onLayout(event, snapshot) {
+            const layout = snapshot.layout || event.layout || event
+            streamSlotRenderer?.applyLayout(layout)
+            rememberStreamSlotLayout(
+              layout,
+              { width: canvasWidth, height: canvasHeight },
+              renderPreferences
+            )
+            setStatus('Layout received; waiting for chart chunks...', 'live')
+          },
+          onChart(event, snapshot) {
+            rememberStreamSlotChart(event)
+            const partialResult = streamSlotRenderer?.renderChart({
+              ...event,
+              spec: getEffectiveSpec(event.spec)
+            })
+            if (partialResult) {
+              lastRenderResult = {
+                node: previewNode,
+                spec: snapshot.spec,
+                stopAnimations: () => streamSlotRenderer?.stop?.()
+              }
+            }
+            setStatus(
+              `Received ${snapshot.charts.length} chart chunk(s); rendering incrementally...`,
+              'live'
+            )
+          },
+          onParseError(error, snapshot) {
+            parseErrorCount += 1
+            parseErrors.push(error)
+            const lineSuffix = error?.lineNumber
+              ? ` at line ${error.lineNumber}`
+              : ''
+            const chartCount = snapshot?.charts?.length || 0
+            setStatus(
+              `Skipped ${parseErrorCount} invalid JSON line(s)${lineSuffix}; ${chartCount} chart chunk(s) still parsed.`,
+              'live'
+            )
+          },
+          onValidationError(error, snapshot) {
+            parseErrorCount += 1
+            parseErrors.push(error)
+            const idSuffix = getStreamEventId(error)
+              ? ` for ${getStreamEventId(error)}`
+              : ''
+            const chartCount = snapshot?.charts?.length || 0
+            setStatus(
+              `Skipped ${parseErrorCount} invalid Sparrow spec chunk(s)${idSuffix}; ${chartCount} chart chunk(s) still parsed.`,
+              'live'
+            )
+          },
+          onSpec(spec) {
+            const effectiveSpec = getEffectiveSpec(spec)
+            rememberRenderedSpec(effectiveSpec, {
+              width: canvasWidth,
+              height: canvasHeight
+            })
+            specJsonNode.textContent = JSON.stringify(effectiveSpec, null, 2)
 
-          const { typeLabel, count, layoutLabel } = summarizeSpec(effectiveSpec)
-          setSummary(
-            layoutLabel
-              ? `${layoutLabel} / ${typeLabel} / ${count} 条数据`
-              : `${typeLabel} / ${count} 条数据`,
-            true
-          )
-        },
-        onRender(result, spec) {
-          lastRenderResult = result
-          const effectiveSpec = getEffectiveSpec(spec)
-          const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
-          const animationSuffix = animateRenderInput.checked
-            ? '，带入场动画'
-            : ''
+            const { typeLabel, count, layoutLabel } =
+              summarizeSpec(effectiveSpec)
+            setSummary(
+              layoutLabel
+                ? `${layoutLabel} / ${typeLabel} / ${count} 条数据`
+                : `${typeLabel} / ${count} 条数据`,
+              true
+            )
+          },
+          onRender(result, spec) {
+            lastRenderResult = result
+            const effectiveSpec = getEffectiveSpec(spec)
+            const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
+            const animationSuffix = animateRenderInput.checked
+              ? '，带入场动画'
+              : ''
 
-          setStatus(
-            layoutLabel
-              ? `已根据最近一个有效 JSON 对象渲染 ${layoutLabel}，包含 ${typeLabel}${animationSuffix}。`
-              : `已根据最近一个有效 JSON 对象渲染 ${typeLabel}${animationSuffix}。`,
-            'ok'
-          )
+            setStatus(
+              layoutLabel
+                ? `已根据最近一个有效 JSON 对象渲染 ${layoutLabel}，包含 ${typeLabel}${animationSuffix}。`
+                : `已根据最近一个有效 JSON 对象渲染 ${typeLabel}${animationSuffix}。`,
+              'ok'
+            )
+          }
+        })
+      } catch (error) {
+        if (
+          error?.name === 'AbortError' ||
+          parseErrors.length === 0 ||
+          !lastStreamSlotState
+        ) {
+          throw error
         }
-      })
+
+        result = {
+          spec: createStreamSlotSpecFromState(),
+          result: { node: previewNode }
+        }
+      }
 
       const repairOutcome = await repairFailedStreamCharts({
         provider,
@@ -1622,7 +1663,12 @@ if (hasPlaygroundPage) {
         signal: controller.signal
       })
 
-      const effectiveSpec = getEffectiveSpec(repairOutcome?.spec || result.spec)
+      const finalSpec = repairOutcome?.spec || result.spec
+      if (!finalSpec) {
+        throw new Error('No valid Sparrow spec was generated or repaired.')
+      }
+
+      const effectiveSpec = getEffectiveSpec(finalSpec)
       const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
       const animationSuffix = animateRenderInput.checked
         ? '，并播放了入场动画'

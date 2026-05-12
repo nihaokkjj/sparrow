@@ -232,6 +232,8 @@ test('playground page asks the model to repair missing stream chart slots once',
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(mocks.streamPlotSpec).toHaveBeenCalledTimes(2)
+  expect(mocks.streamPlotSpec.mock.calls[0][0].validate).toBe(true)
+  expect(mocks.streamPlotSpec.mock.calls[1][0].validate).toBe(true)
   expect(document.querySelector('[data-slot="bars"]')).not.toBeNull()
   expect(document.querySelector('[data-slot="trend"]')).not.toBeNull()
   expect(mocks.renderAISpec).toHaveBeenCalledWith(

@@ -288,6 +288,72 @@ test('streamPlotSpec() reports NDJSON parse errors without stopping later charts
   expect(result.spec.view.children[1].plot.type).toBe('line')
 })
 
+test('streamPlotSpec() reports validation errors and skips invalid NDJSON charts', async () => {
+  const lines = [
+    JSON.stringify({
+      type: 'layout',
+      layout: { type: 'row', slots: ['bad', 'good'] }
+    }),
+    JSON.stringify({
+      type: 'chart',
+      id: 'bad',
+      spec: {
+        plot: {
+          type: 'bar',
+          data: [{ category: 'A', value: 3 }],
+          encodings: { x: 'category', y: 'value' }
+        }
+      }
+    }),
+    JSON.stringify({
+      type: 'chart',
+      id: 'good',
+      spec: {
+        plot: {
+          type: 'line',
+          data: [{ step: 'Q1', value: 2 }],
+          encodings: { x: 'step', y: 'value' }
+        }
+      }
+    }),
+    JSON.stringify({ type: 'done' })
+  ]
+  const provider = {
+    async *stream() {
+      yield `${lines.join('\n')}\n`
+    }
+  }
+  const render = vi.fn((spec) => ({ node: null, spec }))
+  const onValidationError = vi.fn()
+  const onChart = vi.fn()
+
+  const result = await streamPlotSpec({
+    prompt: 'make dashboard',
+    provider,
+    streamFormat: 'ndjson',
+    validate: true,
+    render,
+    onChart,
+    onValidationError
+  })
+
+  expect(onValidationError).toHaveBeenCalledTimes(1)
+  expect(onValidationError.mock.calls[0][0]).toMatchObject({
+    type: 'validation-error',
+    code: 'invalid_spec',
+    id: 'bad',
+    recoverable: true
+  })
+  expect(onValidationError.mock.calls[0][0].validation.errors[0].code).toBe(
+    'unsupported_mark'
+  )
+  expect(onChart).toHaveBeenCalledTimes(1)
+  expect(onChart.mock.calls[0][0].id).toBe('good')
+  expect(render).toHaveBeenCalledTimes(1)
+  expect(result.spec.view.children).toHaveLength(1)
+  expect(result.spec.view.children[0].plot.type).toBe('line')
+})
+
 test('streamPlotSpec() falls back to full JSON in NDJSON mode', async () => {
   const provider = {
     async *stream() {

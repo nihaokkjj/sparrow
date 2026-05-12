@@ -33,6 +33,12 @@ export {
   retrieveSparrowSyntaxKnowledge
 } from './rag.js'
 export {
+  SparrowSpecValidationError,
+  assertValidSparrowSpec,
+  formatValidationReport,
+  validateSparrowSpec
+} from './validateSpec.js'
+export {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_PLAYGROUND_OPENAI_MODEL,

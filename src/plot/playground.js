@@ -2,6 +2,11 @@ import { renderAISpec } from './renderAISpec.js'
 
 import { buildOpenAICompatibleRequestURL } from './providerConfig.js'
 import { DEFAULT_PLOT_SPEC_SYSTEM_PROMPT } from './prompts.js'
+import {
+  SparrowSpecValidationError,
+  formatValidationReport,
+  validateSparrowSpec
+} from './validateSpec.js'
 
 export { DEFAULT_PLOT_SPEC_SYSTEM_PROMPT } from './prompts.js'
 
@@ -486,10 +491,13 @@ export async function streamPlotSpec({
   onLayout,
   onChart,
   onParseError,
+  onValidationError,
   onSpec,
   onRender,
   onComplete,
-  onError
+  onError,
+  validate = false,
+  validateOptions
 }) {
   try {
     if (!prompt || !String(prompt).trim()) {
@@ -499,6 +507,7 @@ export async function streamPlotSpec({
     onStart?.({ prompt })
 
     const source = await requestProviderStream(provider, prompt, { signal })
+    const validator = resolveSpecValidator(validate)
     const eventState =
       streamFormat === 'ndjson' ? createPlotSpecStreamEventState() : null
     let result = null
@@ -513,6 +522,17 @@ export async function streamPlotSpec({
 
       if (eventState) {
         for (const event of parsed) {
+          const validationEvent =
+            event.type === 'chart'
+              ? validateStreamChartEvent(event, validator, validateOptions)
+              : null
+          if (validationEvent) {
+            const snapshot = eventState.apply(null)
+            onEvent?.(validationEvent, snapshot, text)
+            onValidationError?.(validationEvent, snapshot, text)
+            continue
+          }
+
           const snapshot = eventState.apply(event)
           onEvent?.(event, snapshot, text)
           if (event.type === 'layout') onLayout?.(event, snapshot, text)
@@ -522,6 +542,17 @@ export async function streamPlotSpec({
           }
 
           if (snapshot.spec && snapshot.spec !== spec) {
+            const validationError = validateSpecEvent(
+              snapshot.spec,
+              validator,
+              validateOptions
+            )
+            if (validationError) {
+              onEvent?.(validationError, snapshot, text)
+              onValidationError?.(validationError, snapshot, text)
+              continue
+            }
+
             spec = snapshot.spec
             onSpec?.(spec, text, snapshot)
             result = render(spec, renderOptions)
@@ -533,6 +564,7 @@ export async function streamPlotSpec({
 
       spec = parsed
       if (spec) {
+        assertStreamSpecValid(spec, validator, validateOptions)
         onSpec?.(spec, text)
         result = render(spec, renderOptions)
         onRender?.(result, spec, text)
@@ -541,6 +573,18 @@ export async function streamPlotSpec({
 
     if (eventState) {
       for (const event of buffer.finish()) {
+        const validationEvent =
+          event.type === 'chart'
+            ? validateStreamChartEvent(event, validator, validateOptions)
+            : null
+        if (validationEvent) {
+          const snapshot = eventState.apply(null)
+          const text = buffer.getText()
+          onEvent?.(validationEvent, snapshot, text)
+          onValidationError?.(validationEvent, snapshot, text)
+          continue
+        }
+
         const snapshot = eventState.apply(event)
         const text = buffer.getText()
         onEvent?.(event, snapshot, text)
@@ -550,6 +594,17 @@ export async function streamPlotSpec({
           onParseError?.(event, snapshot, text)
         }
         if (snapshot.spec && snapshot.spec !== spec) {
+          const validationError = validateSpecEvent(
+            snapshot.spec,
+            validator,
+            validateOptions
+          )
+          if (validationError) {
+            onEvent?.(validationError, snapshot, text)
+            onValidationError?.(validationError, snapshot, text)
+            continue
+          }
+
           spec = snapshot.spec
           onSpec?.(spec, text, snapshot)
           result = render(spec, renderOptions)
@@ -568,6 +623,7 @@ export async function streamPlotSpec({
     }
 
     if (!result) {
+      assertStreamSpecValid(spec, validator, validateOptions)
       onSpec?.(spec, buffer.getText())
       result = render(spec, renderOptions)
       onRender?.(result, spec, buffer.getText())
@@ -685,6 +741,57 @@ async function requestProviderStream(provider, prompt, options) {
   throw new Error(
     'Provider must be a function or an object with a stream() method.'
   )
+}
+
+function resolveSpecValidator(validate) {
+  if (!validate) return null
+  if (validate === true) return validateSparrowSpec
+  if (typeof validate === 'function') return validate
+  throw new Error('streamPlotSpec validate must be true, false, or a function.')
+}
+
+function validateStreamChartEvent(event, validator, validateOptions) {
+  if (!validator) return null
+
+  const validationError = validateSpecEvent(event.spec, validator, {
+    ...validateOptions,
+    allowViewChild: true
+  })
+  if (!validationError) return null
+
+  return {
+    ...validationError,
+    id: event.id || event.slot || event.key || null,
+    slot: event.slot,
+    key: event.key,
+    chartId: event.chartId,
+    spec: event.spec
+  }
+}
+
+function validateSpecEvent(spec, validator, validateOptions) {
+  if (!validator) return null
+
+  const report = validator(spec, validateOptions)
+  if (report?.valid !== false) return null
+
+  return {
+    type: 'validation-error',
+    code: 'invalid_spec',
+    recoverable: true,
+    validation: report,
+    message: formatValidationReport(report),
+    spec
+  }
+}
+
+function assertStreamSpecValid(spec, validator, validateOptions) {
+  if (!validator) return
+
+  const report = validator(spec, validateOptions)
+  if (report?.valid === false) {
+    throw new SparrowSpecValidationError(report)
+  }
 }
 
 async function* readTextChunks(source) {
