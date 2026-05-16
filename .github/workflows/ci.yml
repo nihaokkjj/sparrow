@@ -25,12 +25,13 @@ jobs:
           restore-keys: |
             cache-node-modules-
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Install
         run: pnpm install
 
       - name: Run CI
         run: pnpm run ci
-
