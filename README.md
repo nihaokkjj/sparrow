@@ -46,14 +46,14 @@ pnpm dev
 
 ### 常用命令
 
-| 命令 | 作用 |
-| --- | --- |
-| `pnpm dev` | 启动本地开发服务和 AI Playground |
-| `pnpm build` | 构建库产物到 `dist/` |
-| `pnpm build:site` | 构建站点到 `site-dist/` |
-| `pnpm preview:site` | 预览构建后的站点 |
-| `pnpm test` | 运行单元测试和覆盖率 |
-| `pnpm ci` | 依次运行测试和构建 |
+| 命令                | 作用                             |
+| ------------------- | -------------------------------- |
+| `pnpm dev`          | 启动本地开发服务和 AI Playground |
+| `pnpm build`        | 构建库产物到 `dist/`             |
+| `pnpm build:site`   | 构建站点到 `site-dist/`          |
+| `pnpm preview:site` | 预览构建后的站点                 |
+| `pnpm test`         | 运行单元测试和覆盖率             |
+| `pnpm ci`           | 依次运行测试和构建               |
 
 ## 使用方式
 
@@ -261,6 +261,34 @@ await streamPlotSpec({
 })
 ```
 
+### 5. 接入向量数据库 RAG
+
+Playground 的语法知识库会优先请求 `/api/rag` 做向量检索；如果服务端没有配置向量库、请求失败，或没有返回匹配内容，会自动回落到内置的本地 Sparrow 语法知识库。
+
+本地开发或 Vercel 部署时配置：
+
+```bash
+QDRANT_URL=https://your-qdrant-host
+QDRANT_API_KEY=...
+RAG_COLLECTION=sparrow_syntax
+OPENAI_EMBEDDING_API_KEY=sk-...
+OPENAI_EMBEDDING_BASE_URL=https://api.openai.com/v1
+RAG_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+首次建立索引：
+
+```bash
+pnpm rag:index
+```
+
+可选配置：
+
+- `VITE_RAG_ENDPOINT`：浏览器请求的 RAG API 路径，默认 `/api/rag`。
+- `RAG_ALLOWED_ORIGINS`：生产环境允许调用 `/api/rag` 的 Origin；未配置时保持同源/开发兼容。
+- `RAG_VECTOR_SIZE`：Qdrant collection 的向量维度，默认 `1536`，适配 `text-embedding-3-small`。
+- `RAG_MAX_PROMPT_CHARACTERS`：送去 embedding 的 prompt 最大长度，默认 `8000`。
+
 ## SparrowPlotSpec 速览
 
 `SparrowPlotSpec` 是项目的高层图表 JSON 格式。它有三种常见写法。
@@ -448,6 +476,7 @@ import { createViews } from '@ksj_project/sparrow/views'
 - `Mock provider` 与 `OpenAI-compatible` 两种 Provider。
 - `Same-origin proxy` 与 `Direct / relay URL` 两种连接模式。
 - Prompt preset / Skill mode 选择，默认使用仓库内 `sparrow-spec-creator` 规格提示词。
+- Excel / CSV 表格拖入提示词框，生成图表时使用导入表格的字段和数据。
 - 自动布局开关，用于控制多面板图表是否自动平衡。
 - 流式输出查看、实时 JSON 解析、SVG 预览。
 - 重新渲染、停止动画、导出 PNG 和 APNG。

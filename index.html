@@ -517,6 +517,41 @@
         gap: 12px;
       }
 
+      .prompt-field textarea {
+        transition:
+          background 0.18s ease,
+          border-color 0.18s ease,
+          box-shadow 0.18s ease,
+          outline-color 0.18s ease;
+      }
+
+      .prompt-data-status {
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .prompt-data-status.has-data {
+        color: var(--text-secondary);
+      }
+
+      .prompt-field.is-drop-suggested textarea {
+        background: rgba(79, 70, 229, 0.06);
+        border-color: rgba(79, 70, 229, 0.42);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+      }
+
+      .prompt-field.is-drop-active textarea {
+        background: rgba(79, 70, 229, 0.1);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-dim);
+      }
+
+      .prompt-field.is-drop-suggested .prompt-data-status {
+        color: var(--accent);
+      }
+
       /* Toggle */
       .toggle {
         display: flex;
@@ -1114,7 +1149,7 @@
               </div>
               <div class="card-body">
                 <form id="controls">
-                  <div class="field">
+                  <div class="field prompt-field" data-spreadsheet-drop-zone>
                     <label class="field-label" for="prompt">提示词</label>
                     <textarea
                       id="prompt"
@@ -1123,6 +1158,14 @@
                     >
 做一个季度趋势折线图，展示 Q1 到 Q4 的增长。</textarea
                     >
+                    <div
+                      class="prompt-data-status"
+                      id="spreadsheet-status"
+                      aria-live="polite"
+                    >
+                      可将 .xlsx、.xls 或 .csv
+                      拖到提示词框，生成时会使用表格数据。
+                    </div>
                   </div>
 
                   <div class="field field-row">

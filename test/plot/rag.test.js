@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import {
   SPARROW_RAG_CONTEXT_MESSAGE_TITLE,
   createRAGPlotProvider,
+  createRAGPlotSpecMessagesAsync,
   createRAGPlotSpecMessages,
   retrieveSparrowSyntaxKnowledge
 } from '../../src/plot/index.js'
@@ -51,6 +52,27 @@ test('createRAGPlotSpecMessages() injects retrieved syntax context', () => {
   })
 })
 
+test('createRAGPlotSpecMessagesAsync() prefers remote vector matches', async () => {
+  const messages = await createRAGPlotSpecMessagesAsync('make a chart', {
+    systemPrompt: 'base system prompt',
+    remoteRetriever: vi.fn(async () => [
+      {
+        item: {
+          id: 'remote-rule',
+          type: 'rule',
+          title: 'Remote vector rule',
+          content: 'Use remote vector context for this request.'
+        },
+        score: 0.91
+      }
+    ])
+  })
+
+  expect(messages).toHaveLength(3)
+  expect(messages[1].content).toContain('Remote vector rule')
+  expect(messages[1].content).not.toContain('Supported marks')
+})
+
 test('createRAGPlotProvider() forwards enhanced messages to the wrapped provider', async () => {
   const stream = async function* () {
     yield '{"plot":{"type":"pie"}}'
@@ -70,6 +92,25 @@ test('createRAGPlotProvider() forwards enhanced messages to the wrapped provider
   expect(baseProvider.stream.mock.calls[0][1].messages[0].content).toBe(
     'base system prompt'
   )
+  expect(baseProvider.stream.mock.calls[0][1].messages[1].content).toContain(
+    'pie'
+  )
+})
+
+test('createRAGPlotProvider() falls back to local knowledge when remote retrieval fails', async () => {
+  const baseProvider = {
+    stream: vi.fn(async function* () {
+      yield '{}'
+    })
+  }
+  const provider = createRAGPlotProvider(baseProvider, {
+    remoteRetriever: vi.fn(async () => {
+      throw new Error('vector db is down')
+    })
+  })
+
+  await provider.stream('Create a pie chart')
+
   expect(baseProvider.stream.mock.calls[0][1].messages[1].content).toContain(
     'pie'
   )

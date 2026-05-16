@@ -11,9 +11,16 @@ import {
   listPlotSpecPromptPresets,
   normalizePlaygroundProvider,
   renderAISpec,
-  streamPlotSpec
+  retrieveVectorSparrowSyntaxKnowledge,
+  streamPlotSpec,
+  validateSparrowSpec
 } from './plot/index.js'
 import { exportSpecAsAPNG, exportSpecAsPNG } from './playground/exportImage.js'
+import {
+  createSpreadsheetPromptContext,
+  formatSpreadsheetSummary,
+  importSpreadsheetFile
+} from './playground/importSpreadsheet.js'
 
 const form = document.getElementById('controls')
 const promptInput = document.getElementById('prompt')
@@ -30,6 +37,8 @@ const apiKeyInput = document.getElementById('apiKey')
 const animateRenderInput = document.getElementById('animateRender')
 const autoLayoutInput = document.getElementById('autoLayout')
 const ragKnowledgeInput = document.getElementById('ragKnowledge')
+const promptDropZone = document.querySelector('[data-spreadsheet-drop-zone]')
+const spreadsheetStatusNode = document.getElementById('spreadsheet-status')
 const runButton = document.getElementById('run')
 const stopButton = document.getElementById('stop')
 const autoLayoutActionButton = document.getElementById('auto-layout-action')
@@ -97,6 +106,8 @@ let streamSlotRenderer = null
 let lastStreamSlotState = null
 let activeProvider = DEFAULT_PLAYGROUND_PROVIDER
 let lastFocusedNodeBeforeHelp = null
+let importedSpreadsheet = null
+let spreadsheetDragDepth = 0
 
 const markTypeLabels = Object.freeze({
   point: '点图',
@@ -424,6 +435,195 @@ function getRenderPreferences(overrides = {}) {
   return {
     autoLayout: autoLayoutInput.checked,
     ...overrides
+  }
+}
+
+function hasImportedSpreadsheetData() {
+  return (
+    Array.isArray(importedSpreadsheet?.rows) &&
+    importedSpreadsheet.rows.length > 0
+  )
+}
+
+function bindImportedSpreadsheetData(spec) {
+  if (!hasImportedSpreadsheetData()) return spec
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return spec
+
+  return bindSpreadsheetDataToNode(cloneSpec(spec), importedSpreadsheet.rows, {
+    root: true
+  })
+}
+
+function bindSpreadsheetDataToNode(node, rows, options = {}) {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return node
+
+  const next = { ...node }
+  if (options.root) next.data = rows
+
+  if (Array.isArray(next.plots)) {
+    next.plots = next.plots.map((plot) => bindSpreadsheetDataToMark(plot, rows))
+  }
+
+  if (Array.isArray(next.plot)) {
+    next.plot = next.plot.map((plot) => bindSpreadsheetDataToMark(plot, rows))
+  } else if (next.plot && typeof next.plot === 'object') {
+    next.plot = bindSpreadsheetDataToMark(next.plot, rows)
+  }
+
+  if (next.view && typeof next.view === 'object') {
+    next.view = bindSpreadsheetDataToNode(next.view, rows, { root: true })
+  }
+
+  if (
+    Array.isArray(next.children) &&
+    ['row', 'col', 'layer', 'facet'].includes(next.type)
+  ) {
+    next.data = rows
+    next.children = next.children.map((child) =>
+      bindSpreadsheetDataToNode(child, rows)
+    )
+  }
+
+  if (autoLayoutMarkTypes.has(next.type)) {
+    next.data = rows
+  }
+
+  return next
+}
+
+function bindSpreadsheetDataToMark(mark, rows) {
+  if (!mark || typeof mark !== 'object' || Array.isArray(mark)) return mark
+  return { ...mark, data: rows }
+}
+
+function getSpecValidator() {
+  if (!hasImportedSpreadsheetData()) return true
+
+  return (spec, options) =>
+    validateSparrowSpec(bindImportedSpreadsheetData(spec), options)
+}
+
+function getSpreadsheetPromptContext() {
+  return hasImportedSpreadsheetData()
+    ? createSpreadsheetPromptContext(importedSpreadsheet)
+    : ''
+}
+
+function appendSpreadsheetPromptContext(prompt) {
+  const context = getSpreadsheetPromptContext()
+  if (!context) return prompt
+  return `${prompt}\n\nImported data context:\n${context}`
+}
+
+function syncSpreadsheetImportUI() {
+  if (spreadsheetStatusNode) {
+    spreadsheetStatusNode.textContent = importedSpreadsheet
+      ? formatSpreadsheetSummary(importedSpreadsheet)
+      : '可将 .xlsx、.xls 或 .csv 拖到提示词框，生成时会使用表格数据。'
+    spreadsheetStatusNode.classList.toggle(
+      'has-data',
+      hasImportedSpreadsheetData()
+    )
+  }
+}
+
+function setSpreadsheetDropHint(active, overDropZone = false) {
+  promptDropZone?.classList.toggle('is-drop-suggested', active)
+  promptDropZone?.classList.toggle('is-drop-active', active && overDropZone)
+
+  if (!spreadsheetStatusNode) return
+  if (!active) {
+    syncSpreadsheetImportUI()
+    return
+  }
+
+  spreadsheetStatusNode.textContent = overDropZone
+    ? '松开鼠标即可导入这个表格文件。'
+    : '把 Excel / CSV 文件拖到提示词输入框导入。'
+}
+
+function isFileDragEvent(event) {
+  const transfer = event?.dataTransfer
+  if (!transfer) return false
+
+  const types = Array.from(transfer.types || [])
+  if (types.includes('Files')) return true
+
+  return Array.from(transfer.items || []).some((item) => item.kind === 'file')
+}
+
+function isSpreadsheetDropTarget(target) {
+  return Boolean(
+    promptDropZone && target instanceof Node && promptDropZone.contains(target)
+  )
+}
+
+function getSpreadsheetDropFile(transfer) {
+  const files = Array.from(transfer?.files || [])
+  if (files.length > 0) return files[0]
+
+  const item = Array.from(transfer?.items || []).find(
+    (entry) => entry.kind === 'file'
+  )
+  return item?.getAsFile?.() || null
+}
+
+function handleSpreadsheetDragEnter(event) {
+  if (!isFileDragEvent(event)) return
+  spreadsheetDragDepth += 1
+  setSpreadsheetDropHint(true, isSpreadsheetDropTarget(event.target))
+}
+
+function handleSpreadsheetDragOver(event) {
+  if (!isFileDragEvent(event)) return
+
+  event.preventDefault()
+  const overDropZone = isSpreadsheetDropTarget(event.target)
+  event.dataTransfer.dropEffect = overDropZone ? 'copy' : 'none'
+  setSpreadsheetDropHint(true, overDropZone)
+}
+
+function handleSpreadsheetDragLeave(event) {
+  if (!isFileDragEvent(event)) return
+
+  spreadsheetDragDepth = Math.max(0, spreadsheetDragDepth - 1)
+  if (spreadsheetDragDepth === 0) {
+    setSpreadsheetDropHint(false)
+  }
+}
+
+function handleSpreadsheetDrop(event) {
+  if (!isFileDragEvent(event)) return
+
+  event.preventDefault()
+  spreadsheetDragDepth = 0
+  const overDropZone = isSpreadsheetDropTarget(event.target)
+  const file = getSpreadsheetDropFile(event.dataTransfer)
+  setSpreadsheetDropHint(false)
+
+  if (!overDropZone) {
+    setStatus('请将表格文件拖到提示词输入框。')
+    return
+  }
+
+  void handleSpreadsheetImport(file)
+}
+
+async function handleSpreadsheetImport(file) {
+  if (!file) return
+
+  try {
+    setStatus('正在解析表格数据...', 'live')
+    importedSpreadsheet = await importSpreadsheetFile(file)
+    syncSpreadsheetImportUI()
+    setStatus(
+      `已导入表格：${importedSpreadsheet.rowCount} 行，${importedSpreadsheet.columns.length} 列。`,
+      'ok'
+    )
+  } catch (error) {
+    importedSpreadsheet = null
+    syncSpreadsheetImportUI()
+    setStatus(error?.message || '表格导入失败。', 'error')
   }
 }
 
@@ -855,6 +1055,7 @@ function createStreamChartRepairPrompt({
   errors = []
 }) {
   const layout = lastStreamSlotState?.layout || null
+  const spreadsheetContext = getSpreadsheetPromptContext()
   const validIds = lastStreamSlotState
     ? [...lastStreamSlotState.charts.keys()]
     : []
@@ -877,6 +1078,9 @@ function createStreamChartRepairPrompt({
     'Repair failed Sparrow multi-chart NDJSON output.',
     `Original user request: ${originalPrompt}`,
     `Canvas size: ${canvasWidth}x${canvasHeight}.`,
+    ...(spreadsheetContext
+      ? [`Imported data context: ${spreadsheetContext}`]
+      : []),
     `Existing layout: ${JSON.stringify(layout)}`,
     `Already valid chart ids: ${JSON.stringify(validIds)}`,
     `Failed chart ids: ${JSON.stringify(failedIds)}`,
@@ -918,7 +1122,7 @@ async function repairFailedStreamCharts({
       }),
       provider,
       streamFormat: 'ndjson',
-      validate: true,
+      validate: getSpecValidator(),
       signal,
       render(spec) {
         return { node: previewNode, spec }
@@ -937,7 +1141,11 @@ async function repairFailedStreamCharts({
         const id = getStreamEventId(event) || fallbackId
         if (!id || !failedIdSet.has(id)) return
 
-        const repairEvent = { ...event, id }
+        const repairEvent = {
+          ...event,
+          id,
+          spec: bindImportedSpreadsheetData(event.spec)
+        }
         rememberStreamSlotChart(repairEvent)
         const partialResult = streamSlotRenderer?.renderChart({
           ...repairEvent,
@@ -1315,7 +1523,13 @@ function createConfiguredRAGProvider(provider, systemPrompt) {
   if (ragKnowledgeInput?.checked === false) return provider
 
   return createRAGPlotProvider(provider, {
-    systemPrompt
+    systemPrompt,
+    remoteRetriever: (prompt, options) =>
+      retrieveVectorSparrowSyntaxKnowledge(prompt, {
+        ...options,
+        endpoint: env.VITE_RAG_ENDPOINT || undefined
+      }),
+    fallbackToLocal: true
   })
 }
 
@@ -1377,8 +1591,14 @@ if (hasPlaygroundPage) {
   populatePromptPresetOptions()
   initializeProviderSettings()
   syncChartActionButtons()
+  syncSpreadsheetImportUI()
   closeExportMenu()
   setStatus(statusTextNode.textContent || '等待输入提示词')
+
+  document.addEventListener('dragenter', handleSpreadsheetDragEnter)
+  document.addEventListener('dragover', handleSpreadsheetDragOver)
+  document.addEventListener('dragleave', handleSpreadsheetDragLeave)
+  document.addEventListener('drop', handleSpreadsheetDrop)
 
   promptPresetSelect.addEventListener('change', () => {
     syncPromptPresetUI()
@@ -1514,7 +1734,9 @@ if (hasPlaygroundPage) {
         renderPreferences
       })
 
-      const promptWithSize = `Canvas size: ${canvasWidth}x${canvasHeight}. Put id, x, y, width, and height in layout.slots for each chart. ${prompt}`
+      const promptWithSize = appendSpreadsheetPromptContext(
+        `Canvas size: ${canvasWidth}x${canvasHeight}. Put id, x, y, width, and height in layout.slots for each chart. ${prompt}`
+      )
 
       let result
       try {
@@ -1522,14 +1744,16 @@ if (hasPlaygroundPage) {
           prompt: promptWithSize,
           provider,
           streamFormat: 'ndjson',
-          validate: true,
+          validate: getSpecValidator(),
           signal: controller.signal,
           render(spec, renderOptions) {
             if (streamSlotRenderer?.getLayout?.()) {
               return { node: previewNode, spec }
             }
 
-            const effectiveSpec = getEffectiveSpec(spec)
+            const effectiveSpec = getEffectiveSpec(
+              bindImportedSpreadsheetData(spec)
+            )
             return renderAISpec(
               {
                 ...effectiveSpec,
@@ -1564,15 +1788,19 @@ if (hasPlaygroundPage) {
             setStatus('Layout received; waiting for chart chunks...', 'live')
           },
           onChart(event, snapshot) {
-            rememberStreamSlotChart(event)
-            const partialResult = streamSlotRenderer?.renderChart({
+            const spreadsheetEvent = {
               ...event,
-              spec: getEffectiveSpec(event.spec)
+              spec: bindImportedSpreadsheetData(event.spec)
+            }
+            rememberStreamSlotChart(spreadsheetEvent)
+            const partialResult = streamSlotRenderer?.renderChart({
+              ...spreadsheetEvent,
+              spec: getEffectiveSpec(spreadsheetEvent.spec)
             })
             if (partialResult) {
               lastRenderResult = {
                 node: previewNode,
-                spec: snapshot.spec,
+                spec: bindImportedSpreadsheetData(snapshot.spec),
                 stopAnimations: () => streamSlotRenderer?.stop?.()
               }
             }
@@ -1606,7 +1834,9 @@ if (hasPlaygroundPage) {
             )
           },
           onSpec(spec) {
-            const effectiveSpec = getEffectiveSpec(spec)
+            const effectiveSpec = getEffectiveSpec(
+              bindImportedSpreadsheetData(spec)
+            )
             rememberRenderedSpec(effectiveSpec, {
               width: canvasWidth,
               height: canvasHeight
@@ -1624,7 +1854,9 @@ if (hasPlaygroundPage) {
           },
           onRender(result, spec) {
             lastRenderResult = result
-            const effectiveSpec = getEffectiveSpec(spec)
+            const effectiveSpec = getEffectiveSpec(
+              bindImportedSpreadsheetData(spec)
+            )
             const { typeLabel, layoutLabel } = summarizeSpec(effectiveSpec)
             const animationSuffix = animateRenderInput.checked
               ? '，带入场动画'
@@ -1663,7 +1895,9 @@ if (hasPlaygroundPage) {
         signal: controller.signal
       })
 
-      const finalSpec = repairOutcome?.spec || result.spec
+      const finalSpec = bindImportedSpreadsheetData(
+        repairOutcome?.spec || result.spec
+      )
       if (!finalSpec) {
         throw new Error('No valid Sparrow spec was generated or repaired.')
       }

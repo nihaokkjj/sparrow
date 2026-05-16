@@ -56,6 +56,7 @@
     "build:site": "vite build --config vite.site.config.js",
     "preview:site": "vite preview --config vite.site.config.js",
     "mcp": "node ./mcp/server.js",
+    "rag:index": "node ./scripts/build-rag-index.mjs",
     "test": "vitest run --coverage",
     "test:browser": "vitest --config=vitest.browser.config.js run",
     "test:browser:example": "vitest --config=vitest.browser.config.js run vitest-browser-example/sparrow/RevenueCard.test.js",
@@ -88,5 +89,8 @@
     "vite": "^8.0.0",
     "vitest": "^4.0.15",
     "zod": "^4.3.6"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

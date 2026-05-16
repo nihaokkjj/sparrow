@@ -28,10 +28,16 @@ export {
   SPARROW_RAG_CONTEXT_MESSAGE_TITLE,
   SPARROW_SYNTAX_KNOWLEDGE,
   createRAGPlotProvider,
+  createRAGPlotSpecMessagesAsync,
   createRAGPlotSpecMessages,
   formatSparrowSyntaxContext,
   retrieveSparrowSyntaxKnowledge
 } from './rag.js'
+export {
+  DEFAULT_VECTOR_RAG_ENDPOINT,
+  normalizeVectorRAGMatches,
+  retrieveVectorSparrowSyntaxKnowledge
+} from './vectorRagClient.js'
 export {
   SparrowSpecValidationError,
   assertValidSparrowSpec,

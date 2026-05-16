@@ -50,7 +50,14 @@ const mocks = vi.hoisted(() => {
     })),
     streamPlotSpec: vi.fn(defaultStreamPlotSpec),
     exportSpecAsPNG: vi.fn(async () => {}),
-    exportSpecAsAPNG: vi.fn(async () => {})
+    exportSpecAsAPNG: vi.fn(async () => {}),
+    importSpreadsheetFile: vi.fn(),
+    retrieveVectorSparrowSyntaxKnowledge: vi.fn(async () => []),
+    validateSparrowSpec: vi.fn(() => ({
+      valid: true,
+      errors: [],
+      warnings: []
+    }))
   }
 })
 
@@ -100,7 +107,10 @@ vi.mock('../../src/plot/index.js', () => ({
   normalizePlaygroundProvider: (value) =>
     value === 'openai' ? 'openai' : 'zhipu',
   renderAISpec: mocks.renderAISpec,
-  streamPlotSpec: mocks.streamPlotSpec
+  retrieveVectorSparrowSyntaxKnowledge:
+    mocks.retrieveVectorSparrowSyntaxKnowledge,
+  streamPlotSpec: mocks.streamPlotSpec,
+  validateSparrowSpec: mocks.validateSparrowSpec
 }))
 
 vi.mock('../../src/playground/exportImage.js', () => ({
@@ -108,10 +118,21 @@ vi.mock('../../src/playground/exportImage.js', () => ({
   exportSpecAsPNG: mocks.exportSpecAsPNG
 }))
 
+vi.mock('../../src/playground/importSpreadsheet.js', () => ({
+  createSpreadsheetPromptContext: (spreadsheet) =>
+    `Imported spreadsheet ${spreadsheet.fileName}. Columns: ${spreadsheet.columns.join(', ')}.`,
+  formatSpreadsheetSummary: (spreadsheet) =>
+    `${spreadsheet.fileName} / ${spreadsheet.sheetName} / ${spreadsheet.rowCount} rows`,
+  importSpreadsheetFile: mocks.importSpreadsheetFile
+}))
+
 function createPageDOM() {
   return `
     <form id="controls">
-      <textarea id="prompt">画一个散点图</textarea>
+      <div id="prompt-field" data-spreadsheet-drop-zone>
+        <textarea id="prompt">画一个散点图</textarea>
+        <div id="spreadsheet-status"></div>
+      </div>
       <input id="canvasWidth" value="640" />
       <input id="canvasHeight" value="480" />
       <select id="promptPreset"></select>
@@ -152,9 +173,34 @@ beforeEach(() => {
   mocks.renderAISpec.mockClear()
   mocks.exportSpecAsPNG.mockClear()
   mocks.exportSpecAsAPNG.mockClear()
+  mocks.importSpreadsheetFile.mockReset()
+  mocks.retrieveVectorSparrowSyntaxKnowledge.mockClear()
+  mocks.validateSparrowSpec.mockClear()
   mocks.streamPlotSpec.mockReset()
   mocks.streamPlotSpec.mockImplementation(mocks.defaultStreamPlotSpec)
 })
+
+function createFileDragEvent(type, file) {
+  const dataTransfer = {
+    types: ['Files'],
+    files: file ? [file] : [],
+    items: file
+      ? [
+          {
+            kind: 'file',
+            getAsFile: () => file
+          }
+        ]
+      : [],
+    dropEffect: 'none'
+  }
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'dataTransfer', {
+    value: dataTransfer,
+    configurable: true
+  })
+  return { event, dataTransfer }
+}
 
 test('playground page asks the model to repair missing stream chart slots once', async () => {
   const barSpec = {
@@ -426,6 +472,130 @@ test('playground page animates failed stream slots while repair is pending', asy
   expect(
     forecastSlot.querySelector('.stream-slot-preview__hint').textContent
   ).toBe('Retry failed')
+})
+
+test('playground page binds imported spreadsheet rows to generated specs', async () => {
+  const rows = [
+    { region: 'East', sales: 12 },
+    { region: 'West', sales: 18 }
+  ]
+  const importedSpreadsheet = {
+    fileName: 'sales.xlsx',
+    sheetName: 'Sheet1',
+    rows,
+    columns: ['region', 'sales'],
+    columnTypes: { region: 'text', sales: 'number' },
+    rowCount: rows.length
+  }
+  const spec = {
+    plot: {
+      type: 'interval',
+      encodings: { x: 'region', y: 'sales' }
+    }
+  }
+
+  mocks.importSpreadsheetFile.mockResolvedValue(importedSpreadsheet)
+  mocks.streamPlotSpec.mockImplementationOnce(
+    async ({ prompt, validate, render, onSpec, onRender }) => {
+      expect(prompt).toContain('Imported spreadsheet sales.xlsx')
+      expect(prompt).toContain('region, sales')
+      expect(validate).toEqual(expect.any(Function))
+      expect(validate(spec, {})).toEqual({
+        valid: true,
+        errors: [],
+        warnings: []
+      })
+
+      onSpec?.(spec)
+      const result = render(spec, {
+        container: document.getElementById('preview')
+      })
+      onRender?.(result, spec)
+
+      return { spec, result }
+    }
+  )
+
+  document.body.innerHTML = createPageDOM()
+  await import('../../src/playground-page.js')
+
+  document
+    .getElementById('prompt-field')
+    .dispatchEvent(
+      createFileDragEvent('drop', new File(['demo'], 'sales.xlsx')).event
+    )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  document
+    .getElementById('controls')
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(mocks.importSpreadsheetFile).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'sales.xlsx' })
+  )
+  expect(mocks.validateSparrowSpec).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: rows,
+      plot: expect.objectContaining({ data: rows })
+    }),
+    {}
+  )
+  expect(mocks.renderAISpec).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: rows,
+      plot: expect.objectContaining({ data: rows })
+    }),
+    expect.objectContaining({
+      container: document.getElementById('preview'),
+      width: 640,
+      height: 480
+    })
+  )
+  expect(document.getElementById('spec-json').textContent).toContain('"region"')
+  expect(document.getElementById('spreadsheet-status').textContent).toContain(
+    'sales.xlsx'
+  )
+})
+
+test('playground page highlights the spreadsheet drop zone for file drags', async () => {
+  const importedSpreadsheet = {
+    fileName: 'dragged.xlsx',
+    sheetName: 'Sheet1',
+    rows: [{ category: 'A', value: 1 }],
+    columns: ['category', 'value'],
+    rowCount: 1
+  }
+
+  mocks.importSpreadsheetFile.mockResolvedValue(importedSpreadsheet)
+
+  document.body.innerHTML = createPageDOM()
+  await import('../../src/playground-page.js')
+
+  const dropZone = document.getElementById('prompt-field')
+  const status = document.getElementById('spreadsheet-status')
+  const file = new File(['demo'], 'dragged.xlsx')
+
+  document.dispatchEvent(createFileDragEvent('dragenter', file).event)
+  expect(dropZone.classList.contains('is-drop-suggested')).toBe(true)
+  expect(status.textContent).toContain('提示词输入框')
+
+  const dragOver = createFileDragEvent('dragover', file)
+  dropZone.dispatchEvent(dragOver.event)
+  expect(dropZone.classList.contains('is-drop-active')).toBe(true)
+  expect(dragOver.dataTransfer.dropEffect).toBe('copy')
+  expect(status.textContent).toContain('松开鼠标')
+
+  dropZone.dispatchEvent(createFileDragEvent('drop', file).event)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(mocks.importSpreadsheetFile).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'dragged.xlsx' })
+  )
+  expect(dropZone.classList.contains('is-drop-suggested')).toBe(false)
+  expect(dropZone.classList.contains('is-drop-active')).toBe(false)
+  expect(status.textContent).toContain('dragged.xlsx')
 })
 
 test('playground page script works with the current index.html DOM contract', async () => {

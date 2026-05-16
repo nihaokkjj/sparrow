@@ -3,6 +3,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
+import ragApi from './api/rag.js'
 import {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_PROXY_PATH,
@@ -27,6 +28,7 @@ export function createViteConfig(mode = process.env.NODE_ENV || 'development') {
   )
   const proxyTarget = env.OPENAI_PROXY_TARGET || DEFAULT_OPENAI_BASE_URL
   const proxyAuthToken = env.OPENAI_API_KEY || ''
+  const ragPath = normalizeLocalPath(env.VITE_RAG_ENDPOINT || '/api/rag')
 
   return {
     build: {
@@ -48,6 +50,9 @@ export function createViteConfig(mode = process.env.NODE_ENV || 'development') {
       proxy: {}
     },
     plugins: [
+      createRAGApiPlugin({
+        ragPath
+      }),
       createOpenAIProxyPlugin({
         proxyPath,
         defaultTarget: proxyTarget,
@@ -62,6 +67,27 @@ export function createViteConfig(mode = process.env.NODE_ENV || 'development') {
 }
 
 export default defineConfig(createViteConfig())
+
+function createRAGApiPlugin({ ragPath = '/api/rag' } = {}) {
+  return {
+    name: 'sparrow-rag-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!shouldProxyRequest(req.url, ragPath)) {
+          next()
+          return
+        }
+
+        try {
+          const response = await ragApi.fetch(createFetchRequest(req))
+          writeFetchResponse(res, response)
+        } catch (error) {
+          writeProxyError(res, 500, error?.message || 'RAG request failed.')
+        }
+      })
+    }
+  }
+}
 
 function createOpenAIProxyPlugin({ proxyPath, defaultTarget, authToken }) {
   return {
@@ -132,6 +158,49 @@ function createOpenAIProxyPlugin({ proxyPath, defaultTarget, authToken }) {
   }
 }
 
+function createFetchRequest(req) {
+  return new Request(new URL(req.url || '/', 'http://sparrow.local'), {
+    method: req.method,
+    headers: createFetchHeaders(req.headers),
+    ...(allowsRequestBody(req.method) ? { body: req, duplex: 'half' } : {})
+  })
+}
+
+function createFetchHeaders(requestHeaders) {
+  const headers = new Headers()
+
+  for (const [name, value] of Object.entries(requestHeaders)) {
+    if (value == null) continue
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        headers.append(name, item)
+      })
+      continue
+    }
+
+    headers.set(name, value)
+  }
+
+  return headers
+}
+
+function writeFetchResponse(res, response) {
+  res.statusCode = response.status
+  res.statusMessage = response.statusText
+
+  response.headers.forEach((value, name) => {
+    res.setHeader(name, value)
+  })
+
+  if (!response.body) {
+    res.end()
+    return
+  }
+
+  Readable.fromWeb(response.body).pipe(res)
+}
+
 function createUpstreamHeaders(requestHeaders, authToken) {
   const headers = new Headers()
 
@@ -167,6 +236,15 @@ function shouldProxyRequest(requestURL, proxyPath) {
   if (!requestURL) return false
   const pathname = new URL(requestURL, 'http://sparrow.local').pathname
   return pathname === proxyPath || pathname.startsWith(`${proxyPath}/`)
+}
+
+function normalizeLocalPath(value) {
+  const normalized = String(value || '').trim()
+  if (/^[a-zA-Z][\w+.-]*:\/\//.test(normalized)) {
+    return normalizeProxyPath(new URL(normalized).pathname)
+  }
+
+  return normalizeProxyPath(normalized || '/api/rag')
 }
 
 function readHeaderValue(value) {

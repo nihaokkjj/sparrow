@@ -103,6 +103,45 @@ export function createRAGPlotSpecMessages(
   } = {}
 ) {
   const matches = retrieveSparrowSyntaxKnowledge(prompt, { topK, knowledge })
+  return createRAGPlotSpecMessagesFromMatches(prompt, matches, {
+    systemPrompt,
+    maxContextCharacters
+  })
+}
+
+export async function createRAGPlotSpecMessagesAsync(
+  prompt,
+  {
+    systemPrompt = DEFAULT_PLOT_SPEC_SYSTEM_PROMPT,
+    topK = DEFAULT_SPARROW_RAG_TOP_K,
+    knowledge = SPARROW_SYNTAX_KNOWLEDGE,
+    maxContextCharacters = 5000,
+    retriever = retrieveSparrowSyntaxKnowledge,
+    remoteRetriever,
+    fallbackToLocal = true,
+    signal
+  } = {}
+) {
+  const matches = await retrieveRAGMatches(prompt, {
+    topK,
+    knowledge,
+    retriever,
+    remoteRetriever,
+    fallbackToLocal,
+    signal
+  })
+
+  return createRAGPlotSpecMessagesFromMatches(prompt, matches, {
+    systemPrompt,
+    maxContextCharacters
+  })
+}
+
+function createRAGPlotSpecMessagesFromMatches(
+  prompt,
+  matches,
+  { systemPrompt, maxContextCharacters }
+) {
   const context = formatSparrowSyntaxContext(matches, {
     maxCharacters: maxContextCharacters
   })
@@ -135,7 +174,10 @@ export function createRAGPlotProvider(
     systemPrompt = DEFAULT_PLOT_SPEC_SYSTEM_PROMPT,
     topK = DEFAULT_SPARROW_RAG_TOP_K,
     knowledge = SPARROW_SYNTAX_KNOWLEDGE,
-    maxContextCharacters = 5000
+    maxContextCharacters = 5000,
+    retriever = retrieveSparrowSyntaxKnowledge,
+    remoteRetriever,
+    fallbackToLocal = true
   } = {}
 ) {
   return {
@@ -144,11 +186,15 @@ export function createRAGPlotProvider(
         return requestProviderStream(provider, prompt, options)
       }
 
-      const messages = createRAGPlotSpecMessages(prompt, {
+      const messages = await createRAGPlotSpecMessagesAsync(prompt, {
         systemPrompt: options.systemPrompt || systemPrompt,
         topK,
         knowledge,
-        maxContextCharacters
+        maxContextCharacters,
+        retriever,
+        remoteRetriever,
+        fallbackToLocal,
+        signal: options.signal
       })
 
       return requestProviderStream(provider, prompt, {
@@ -157,6 +203,26 @@ export function createRAGPlotProvider(
       })
     }
   }
+}
+
+async function retrieveRAGMatches(
+  prompt,
+  { topK, knowledge, retriever, remoteRetriever, fallbackToLocal, signal }
+) {
+  if (typeof remoteRetriever === 'function') {
+    try {
+      const remoteMatches = normalizeMatches(
+        await remoteRetriever(prompt, { topK, signal })
+      )
+      if (remoteMatches.length > 0) return remoteMatches
+      if (!fallbackToLocal) return []
+    } catch (error) {
+      if (!fallbackToLocal) throw error
+    }
+  }
+
+  if (typeof retriever !== 'function') return []
+  return normalizeMatches(await retriever(prompt, { topK, knowledge, signal }))
 }
 
 function requestProviderStream(provider, prompt, options) {
